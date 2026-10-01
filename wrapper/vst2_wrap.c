@@ -90,7 +90,8 @@ typedef struct {
     float shadow[NPARAMS];   /* unrounded position last set on an integer param; <0 = none */
     float qacc[NPARAMS];     /* Q-Link turn events counted toward the next option of a list (see setParameter) */
     signed char last_on[NPARAMS];  /* last "<key>_on" value told to the host, +1 (0 = unknown) */
-    int on_poll;                   /* frames until the next "<key>_on" poll (see housekeeping) */
+    unsigned last_text[NPARAMS];   /* hash of a text readout's last value (see housekeeping) */
+    int on_poll;                   /* frames until the next "<key>_on" / readout poll (see housekeeping) */
     volatile char need_update_display;  /* deferred audioMasterUpdateDisplay -- see setParameter() */
     float open[NPARAMS];     /* popup "open" flags (popup.h): kept here, never sent to the DSP or saved */
     char chunk[8192];
@@ -259,21 +260,33 @@ static void housekeeping(AEffect *e, int32_t n) {
      * setParameter, so the host is not re-entered from its own call. */
     for (int i = 0; i < NPARAMS; i++)
         if (w->holdFrames[i] > 0 && (w->holdFrames[i] -= n) <= 0) { w->holdFrames[i] = 0; w->master(&w->fx, audioMasterAutomate, i, 0, 0, 0.0f); }
-    /* list-tile selection ("<key>_on"): the host doesn't re-read a button's value on UpdateDisplay, so push
-     * changes. Polled every 10 ms, not only after a screen tap: a tile can light from MIDI (a pad plays a
-     * chord), with no parameter set at all. */
+    /* Text params, polled every 10 ms, not only after a screen tap, because MIDI alone can change them (a pad
+     * plays a chord, nothing on screen touched):
+     * - list-tile selection ("<key>_on"): the host doesn't re-read a button's value on UpdateDisplay, so push
+     *   a change with audioMasterAutomate (a tile lights while the pad is held);
+     * - a readout's text: the host only re-reads it on UpdateDisplay, so ask for one when the text changed (a
+     *   chord name on a page without tiles stayed stale until something else was tapped). */
     if ((w->on_poll -= n) <= 0) {
         w->on_poll = 441;
         for (int i = 0; i < NPARAMS; i++) {
             if (!PARAMS[i].string_display) continue;
-            char k2[96], b2[16];
+            char k2[96], b2[64];
             snprintf(k2, sizeof k2, "%s_on", PARAMS[i].key);
-            if (g_api->get_param(w->dsp, k2, b2, sizeof b2) <= 0) continue;
-            int on = atoi(b2) ? 1 : 0;
-            if (w->last_on[i] != on + 1) {
-                w->last_on[i] = (signed char)(on + 1);
-                w->master(&w->fx, audioMasterAutomate, i, 0, 0, (float)on);
-                w->need_update_display = 1;
+            if (g_api->get_param(w->dsp, k2, b2, sizeof b2) > 0) {
+                int on = atoi(b2) ? 1 : 0;
+                if (w->last_on[i] != on + 1) {
+                    w->last_on[i] = (signed char)(on + 1);
+                    w->master(&w->fx, audioMasterAutomate, i, 0, 0, (float)on);
+                    w->need_update_display = 1;
+                }
+            }
+            if (g_api->get_param(w->dsp, PARAMS[i].key, b2, sizeof b2) > 0) {
+                unsigned h = 2166136261u;   /* FNV-1a */
+                for (const char *s = b2; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u;
+                if (h != w->last_text[i]) {
+                    w->last_text[i] = h;
+                    w->need_update_display = 1;
+                }
             }
         }
     }
