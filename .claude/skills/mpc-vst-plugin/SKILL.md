@@ -42,7 +42,10 @@ Stop any separately attached audio engines first.
 
 ## Gotchas
 - Integer DSP params: set `"display": "int"`. The wrapper then rounds and keeps the unrounded knob position, so slow
-  Q-Link turns accumulate (else they stick between two values). List-tile highlights need `<key>_on` from the DSP.
+  Q-Link turns accumulate (else they stick between two values). List-tile highlights need `<key>_on` from the DSP
+  (polled every 10 ms, so a tile can light from MIDI alone; `theme_tile_on=` fills the lit tile, `list ... order=pads`
+  numbers the rows from the bottom like a pad bank). A Q-Link steps an option list one option per `QLINK_TICKS`
+  turn events (`"qlink_ticks": N` per param, also for a short `"display": "int"` range such as a MIDI channel).
   The orange box on a control is the transparent-able Focus ring, not Q-Link bounds. Details: docs/NOTES.md
   "Skin design lessons from the jv880 redesign".
 - AEffect magic `'VstP'` 0x56737450 (the forum PoC's value is wrong).
