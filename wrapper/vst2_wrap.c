@@ -104,6 +104,7 @@ typedef struct {
     signed char last_on[NPARAMS];  /* last "<key>_on" value told to the host, +1 (0 = unknown) */
     int playing;             /* HAS_TRANSPORT: last transport state sent */
     double ppq;              /* HAS_TRANSPORT: song position at the last block, to spot a jump back */
+    int on_poll;                   /* frames until the next "<key>_on" poll (see housekeeping) */
     volatile char need_update_display;  /* deferred audioMasterUpdateDisplay -- see setParameter() */
     int rev_frames;          /* HAS_DISPLAY_REV: frames until the next poll */
     char last_rev[16];       /* HAS_DISPLAY_REV: the "display_rev" last seen */
@@ -322,10 +323,11 @@ static void housekeeping(AEffect *e, int32_t n) {
         if (w->holdFrames[i] > 0 && (w->holdFrames[i] -= n) <= 0) { w->holdFrames[i] = 0; w->master(&w->fx, audioMasterAutomate, i, 0, 0, 0.0f); }
     for (int i = 0; i < NPARAMS; i++)
         if (w->changed[i]) { w->changed[i] = 0; w->master(&w->fx, audioMasterAutomate, i, 0, 0, get_norm(w, i)); }
-    if (w->need_update_display) {
-        w->need_update_display = 0;
-        w->master(&w->fx, audioMasterUpdateDisplay, 0, 0, 0, 0.0f);
-        /* list-tile selection: the host doesn't re-read a button's value on UpdateDisplay, so push changes */
+    /* list-tile selection ("<key>_on"): the host doesn't re-read a button's value on UpdateDisplay, so push
+     * changes. Polled every 10 ms, not only after a screen tap: a tile can light from MIDI (a pad plays a
+     * chord), with no parameter set at all. */
+    if ((w->on_poll -= n) <= 0) {
+        w->on_poll = 441;
         for (int i = 0; i < NPARAMS; i++) {
             if (!PARAMS[i].string_display) continue;
             char k2[96], b2[16];
@@ -335,8 +337,13 @@ static void housekeeping(AEffect *e, int32_t n) {
             if (w->last_on[i] != on + 1) {
                 w->last_on[i] = (signed char)(on + 1);
                 w->master(&w->fx, audioMasterAutomate, i, 0, 0, (float)on);
+                w->need_update_display = 1;
             }
         }
+    }
+    if (w->need_update_display) {
+        w->need_update_display = 0;
+        w->master(&w->fx, audioMasterUpdateDisplay, 0, 0, 0, 0.0f);
     }
 }
 
