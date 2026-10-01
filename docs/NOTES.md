@@ -817,3 +817,6 @@ Machinedrum-only patch (mpc-vst-machinedrum `release/mpc_patch`): the plugin-nam
 uninstall from either backup, upgrade from the earlier patches, refusal of other firmware) and on a Force (6W6, 8W8, CW-78, 9W9: drum
 layout, pads 1-n play voices 1-n). Needs plugin notes 0-15 for the pads (the tr-drums ports remap them). To add a plugin: add its exact
 plugin name to the table, rebuild (`asm.sh`, `make_patch.py <stock MPC>`, `build_script.py`) and run both tests.
+
+### 2026-10-01: MIDI-generator and control-surface facts from Chordsmith on an MPC Key 37
+- **Q-Links** are relative encoders on the control surface (CC 0x10-0x13 on ch1, 01 = +1, 7f = -1, accelerated up to about ±4; CC 0x64 is the jog wheel). MPC turns them into small setParameter deltas from the getParameter value. Stepping one option per event raced through option lists and flipped switches on a wobble; the wrapper now counts events (`QLINK_TICKS` per option, per-param `qlink_ticks`, also for short integer ranges) and treats a move of half a step or more as a direct set. Not yet tried with a hand on a real Q-Link.

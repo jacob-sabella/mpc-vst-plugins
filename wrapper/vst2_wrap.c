@@ -88,6 +88,7 @@ typedef struct {
     double bpm;
     volatile int holdFrames[NPARAMS];  /* momentary params: frames left before reporting back to 0 (hold_ms) */
     float shadow[NPARAMS];   /* unrounded position last set on an integer param; <0 = none */
+    float qacc[NPARAMS];     /* Q-Link turn events counted toward the next option of a list (see setParameter) */
     signed char last_on[NPARAMS];  /* last "<key>_on" value told to the host, +1 (0 = unknown) */
     volatile char need_update_display;  /* deferred audioMasterUpdateDisplay -- see setParameter() */
     float open[NPARAMS];     /* popup "open" flags (popup.h): kept here, never sent to the DSP or saved */
@@ -95,6 +96,9 @@ typedef struct {
 } wrap_t;
 
 static const mpc_engine_t *g_api;
+
+/* Q-Link turn events per option of a list, unless a param sets qlink_ticks (see setParameter) */
+#define QLINK_TICKS 3
 
 static float clamp01(float v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
@@ -177,18 +181,38 @@ static void setParameter(AEffect *e, int32_t i, float n) {
         return;
     }
     if (p->nopts > 1) {
-        /* A value on an option (button press, preset, automation) selects it. A value
-         * between options is a Q-Link/encoder nudge from the current one: step one
-         * option that way, else small nudges round back and never change state. */
+        /* A value on an option (button press, preset, automation) selects it. A value between options is
+         * a Q-Link turn from the current one (MPC adds a small delta to what getParameter said). Count those
+         * events and step one option per qlink_ticks of them in the same direction, like a detented knob:
+         * stepping on every event raced through a list on a slow turn, and the slightest wobble flipped a
+         * switch. Turning back starts over. A jump of half an option or more is no Q-Link tick: it steps now. */
         float pos = clamp01(n) * (p->nopts - 1);
         if (fabsf(pos - roundf(pos)) > 0.001f) {
             nudge = 1;
-            float cur = get_norm(w, i) * (p->nopts - 1);
-            int idx = (int)lroundf(cur) + (pos > cur ? 1 : -1);
+            float cur = get_norm(w, i) * (p->nopts - 1), d = pos - cur;
+            int ticks = p->qlink_ticks > 0 ? p->qlink_ticks : QLINK_TICKS;
+            if (d * w->qacc[i] < 0) w->qacc[i] = 0;
+            w->qacc[i] += d > 0 ? 1 : -1;
+            if (fabsf(d) < 0.5f && fabsf(w->qacc[i]) < ticks) return;   /* the host reads the same option back */
+            w->qacc[i] = 0;
+            int idx = (int)lroundf(cur) + (d > 0 ? 1 : -1);
             if (idx < 0) idx = 0;
             if (idx > p->nopts - 1) idx = p->nopts - 1;
             n = (float)idx / (p->nopts - 1);
-        }
+        } else
+            w->qacc[i] = 0;                  /* picked outright: nothing banked */
+    } else if (p->int_display && p->qlink_ticks > 0 && p->max > p->min) {
+        /* an integer with its own Q-Link rate: one step per qlink_ticks turn events, counted as for a list.
+         * A move of half a step or more is a direct set (automation, a drag), not a tick. */
+        float range = p->max - p->min, pos = clamp01(n) * range, cur = get_norm(w, i), d = (n - cur) * range;
+        if (fabsf(pos - roundf(pos)) > 0.001f && fabsf(d) < 0.5f) {
+            if (d * w->qacc[i] < 0) w->qacc[i] = 0;
+            w->qacc[i] += d > 0 ? 1 : -1;
+            if (fabsf(w->qacc[i]) < p->qlink_ticks) return;   /* the host reads the same value back */
+            w->qacc[i] = 0;
+            n = clamp01((roundf(cur * range) + (d > 0 ? 1 : -1)) / range);
+        } else
+            w->qacc[i] = 0;
     }
     norm_to_str(p, n, buf, sizeof buf);
     g_api->set_param(w->dsp, PARAMS[i].key, buf);
