@@ -622,6 +622,12 @@ path if the DSP returns nothing. The DSP answers it with real selection state (j
 `patch_slot_N_on` = loaded patch). MPC does not re-read a button's value on `audioMasterUpdateDisplay`, so
 `run_block` also calls `audioMasterAutomate(i, value)` for each such param whenever its `_on` value changes
 (`last_on[]` caches what the host was told). Without that push the highlight showed only sometimes.
+  Follow-up (2026-10-01, Chordsmith): that push only ran after a parameter set, so a tile whose `_on` changed
+  from MIDI alone (a pad plays a chord, nothing on screen touched) never lit. `housekeeping()` now polls every
+  `_on` every 10 ms (441 frames) and pushes a change with `audioMasterAutomate` plus an `UpdateDisplay`;
+  verified on the device: the tile lights while the pad is held and goes dark on release. Skin side:
+  `theme_tile_on=RRGGBB` fills the selected/sounding tile (default: the LCD fill, border only) and
+  `list ... order=pads` numbers the rows from the bottom like a pad bank (pad 1 bottom left).
 
 **The orange box on a control is the Focus subcomponent, not the Q-Link bounds.** `_focus()` in `shadow_skin.py`
 adds a `WhenFocussed` outline plus a faint white fill sized to the control's whole placed slot (about 130 x 155 for a
