@@ -32,7 +32,8 @@ Layout file:
     stepper cx= cy= w= h= label="..." key=<param> [label_align=center]   (live text;
                                                         arrows = <param>_prev / <param>_next;
                                                         label_align=center needs "art": "html")
-    list    x= y= w= h= cols= rows= th= gap= key=<p>   (rows = params <p>_1..<p>_N: text + tap)
+    list    x= y= w= h= cols= rows= th= gap= key=<p>   (rows = params <p>_1..<p>_N: text + tap;
+                                                        order=pads numbers the rows from the bottom, like a pad bank)
     art     file="drawing.svg" [x= y= w= h=] [fit=]    (an SVG drawing, e.g. from studio.py from-svg, or a .png/.jpg/.webp
                                                         image, drawn into the page background: the whole plugin area, or
                                                         the box; fit=contain|cover|stretch; browser renderer only)
@@ -79,6 +80,7 @@ W, H, Y_OFF = 1280, 628, 86
 PLATE, INK, INK_DIM, ACCENT, ACCENT_HI = "131211", "efe9d8", "8f8878", "c1552f", "e2793f"
 SEG_ON, SEG_OFF, SEG_ON_TX = "f2f1ee", "050403", "1c1a17"
 LCD, LINE, BTN_BG, BTN_TEXT, BOX = "1a120d", "2a2823", "", "fdf3ea", "1f1f1f"
+TILE_ON = ""             # theme_tile_on: fill of a selected/sounding list tile ("" = the LCD fill, border only)
 DISPLAY_INK = "cdeb63"   # theme_display_ink: live-text colour over a dotreadout/dotstepper (see readout/stepper below)
 TD3 = False   # style=td3: frames are filled boxes, so widget crops sit on BOX, not the page bg
 LABEL_SCALE = 1.0   # label_scale=<n>: scales knob/toggle/pill name+value live-text size and their boxes
@@ -92,7 +94,7 @@ POP_ROW, POP_GAP, POP_PAD = 40, 2, 6
 THEME_KEYS = {"bg": "PLATE", "ink": "INK", "ink_dim": "INK_DIM", "accent": "ACCENT", "accent_hi": "ACCENT_HI",
               "seg_active": "SEG_ON", "seg_inactive": "SEG_OFF", "seg_active_tx": "SEG_ON_TX",
               "lcd": "LCD", "line": "LINE", "btn_bg": "BTN_BG", "btn_text": "BTN_TEXT", "box": "BOX",
-              "display_ink": "DISPLAY_INK"}
+              "display_ink": "DISPLAY_INK", "tile_on": "TILE_ON"}
 
 
 FONT_LABEL_PATH = None   # font_label=<path> (layout.conf top level) -- see apply_theme()
@@ -250,7 +252,11 @@ def shade(hexcol, f):
 
 
 def list_keys(w):
-    return ["%s_%d" % (w["key"], i + 1) for i in range(w["cols"] * w["rows"])]
+    """tile i's param: rows top-down, or bottom-up like a pad bank (order=pads: pad 1 is bottom left)"""
+    n, cols = w["cols"] * w["rows"], w["cols"]
+    if w.get("order") == "pads":
+        return ["%s_%d" % (w["key"], (w["rows"] - 1 - i // cols) * cols + i % cols + 1) for i in range(n)]
+    return ["%s_%d" % (w["key"], i + 1) for i in range(n)]
 
 
 def list_tiles(w):
@@ -908,7 +914,7 @@ def build(layout_path, params, skin_dir, art_bin, png_from_ppm):
                     img = "sh_tile_%dx%d" % (tw, th) if not own else "sh_card_%s_%dx%d" % (slug(w["key"]), tw, th)
                     for state, border in (("on", 3), ("off", 0)):
                         drawn = card_art(w.get("img_on", own) if border else own, x, y, tw, th, base_dir) if own else \
-                            "tile|%d|%d|%d|%d|%s|%s|%d" % (x, y, tw, th, LCD, SEG_ON if border else LINE, border)
+                            "tile|%d|%d|%d|%d|%s|%s|%d" % (x, y, tw, th, (TILE_ON or LCD) if border else LCD, SEG_ON if border else LINE, border)
                         script += ["clear|" + under(), drawn,
                                    "crop|%s|%d|%d|%d|%d" % (art("%s_%s" % (img, state)), x, y, tw, th)]
                     size, colour, just, style, font, sig = live_text(w, 24.0, ACCENT, "left verticallyCentred")
