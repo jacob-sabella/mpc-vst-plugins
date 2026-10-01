@@ -910,3 +910,5 @@ Size per load is frames × frame area × 4: filmstrip frames are square (`square
 (the display; `card1` is the GPU and refuses KMS ioctls) has one active CRTC with an 800x1280 XRGB8888 buffer, linear
 (modifier 0), so GETFB2 + PRIME export + mmap gives the exact screen. The panel is portrait: rotate 270 degrees. The plugin
 area is 1280x628 at y=110 of the upright image. `tools/screenshot.sh` does all of it.
+### 2026-10-01: MIDI-generator and control-surface facts from Chordsmith on an MPC Key 37
+- **Q-Links** are relative encoders on the control surface (CC 0x10-0x13 on ch1, 01 = +1, 7f = -1, accelerated up to about ±4; CC 0x64 is the jog wheel). MPC turns them into small setParameter deltas from the getParameter value. Stepping one option per event raced through option lists and flipped switches on a wobble; a param can now opt in to counting events (`qlink_ticks` per option or integer step, for option lists and short integer ranges; a move of half a step or more is a direct set). Everything else steps on every event, as `settle()` does. Not yet tried with a hand on a real Q-Link.

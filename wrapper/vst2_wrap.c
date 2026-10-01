@@ -100,6 +100,7 @@ typedef struct {
     int inpos;
     double bpm;
     volatile int holdFrames[NPARAMS];  /* momentary params: frames left before reporting back to 0 (hold_ms) */
+    float qacc[NPARAMS];     /* qlink_ticks: turn events counted toward the next step (see setParameter) */
     signed char last_on[NPARAMS];  /* last "<key>_on" value told to the host, +1 (0 = unknown) */
     int playing;             /* HAS_TRANSPORT: last transport state sent */
     double ppq;              /* HAS_TRANSPORT: song position at the last block, to spot a jump back */
@@ -209,17 +210,45 @@ static void setParameter(AEffect *e, int32_t i, float n) {
     }
     if (p->nopts > 1) {
         /* A value on an option (button press, preset, automation) selects it; one between options is a
-         * Q-Link / encoder / drag move, settled as above. */
-        float pos = clamp01(n) * (p->nopts - 1);
+         * Q-Link / data wheel / drag move, settled as above. A param with "qlink_ticks" > 1 instead counts small
+         * moves and steps one option per qlink_ticks of them in the same direction, like a detented knob (a slow
+         * Q-Link turn otherwise runs through a short list); turning back starts over. MPC sends Q-Link and data
+         * wheel moves alike (a small delta from the value it read back; docs/NOTES.md "Input probe"), so the
+         * wheel then takes qlink_ticks clicks per option too: opt in only where that is wanted. */
+        float pos = clamp01(n) * (p->nopts - 1), cur = get_norm(w, i) * (p->nopts - 1), idx;
         nudge = fabsf(pos - roundf(pos)) > 0.001f;
-        float idx = settle(pos, get_norm(w, i) * (p->nopts - 1), w->last_pos[i]);
-        w->last_pos[i] = pos;
+        if (p->qlink_ticks > 1 && nudge && fabsf(pos - cur) < 0.5f) {
+            float d = pos - cur;
+            w->last_pos[i] = pos;
+            if (d * w->qacc[i] < 0) w->qacc[i] = 0;
+            w->qacc[i] += d > 0 ? 1 : -1;
+            if (fabsf(w->qacc[i]) < p->qlink_ticks) return;   /* the host reads the same option back */
+            w->qacc[i] = 0;
+            idx = roundf(cur) + (d > 0 ? 1 : -1);
+        } else {
+            w->qacc[i] = 0;                  /* picked or jumped outright: nothing banked */
+            idx = settle(pos, cur, w->last_pos[i]);
+            w->last_pos[i] = pos;
+        }
         n = clamp01(idx / (p->nopts - 1));
     }
     else if (p->int_display && p->max > p->min) {
-        float span = p->max - p->min, pos = clamp01(n) * span;
-        float steps = settle(pos, get_norm(w, i) * span, w->last_pos[i]);
-        w->last_pos[i] = pos;
+        /* whole numbers: settled like options, or counted with "qlink_ticks" > 1 (a short range such as a MIDI
+         * channel). A move of half a step or more is a direct set (automation, a drag), not a tick. */
+        float span = p->max - p->min, pos = clamp01(n) * span, cur = get_norm(w, i) * span, steps;
+        if (p->qlink_ticks > 1 && fabsf(pos - roundf(pos)) > 0.001f && fabsf(pos - cur) < 0.5f) {
+            float d = pos - cur;
+            w->last_pos[i] = pos;
+            if (d * w->qacc[i] < 0) w->qacc[i] = 0;
+            w->qacc[i] += d > 0 ? 1 : -1;
+            if (fabsf(w->qacc[i]) < p->qlink_ticks) return;   /* the host reads the same value back */
+            w->qacc[i] = 0;
+            steps = roundf(cur) + (d > 0 ? 1 : -1);
+        } else {
+            w->qacc[i] = 0;
+            steps = settle(pos, cur, w->last_pos[i]);
+            w->last_pos[i] = pos;
+        }
         n = clamp01(steps / span);
     }
     norm_to_str(p, n, buf, sizeof buf);
