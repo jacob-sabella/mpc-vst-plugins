@@ -16,6 +16,7 @@ carries an empty wrapper chunk, so loading it starts the engine from its default
 """
 import datetime
 import os
+from xml.sax.saxutils import quoteattr, escape
 import re
 import shutil
 import struct
@@ -68,16 +69,17 @@ def xpl(name, vendor, so_path, uid, version, chunk, preset="Default", effect=Fal
     state = b64enc(fxb_chunk_set(uid, version, chunk))
     date = date or datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
     return ('<?xml version="1.0" encoding="UTF-8"?>\n\n<pluginstate>\n  <version file="1" date="%s"/>\n'
-            '  <PLUGIN name="%s" format="VST" category="%s" manufacturer="%s"\n'
-            '          version="1.0" file="%s" uid="%08x" isInstrument="%d" fileTime="0"\n'
+            '  <PLUGIN name=%s format="VST" category="%s" manufacturer=%s\n'
+            '          version="1.0" file=%s uid="%08x" isInstrument="%d" fileTime="0"\n'
             '          infoUpdateTime="0" numInputs="%d" numOutputs="2" isShell="0"/>\n'
             '  <preset>%s</preset>\n  <state>%s</state>\n</pluginstate>\n'
-            % (date, name, "Effect" if effect else "Synth", vendor, so_path, uid, 0 if effect else 1,
-               2 if effect else 0, preset, state))
+            % (date, quoteattr(name), "Effect" if effect else "Synth", quoteattr(vendor), quoteattr(so_path), uid,
+               0 if effect else 1, 2 if effect else 0, escape(preset), state))
 
 
 def png_size(path):
-    d = open(path, "rb").read(24)
+    with open(path, "rb") as f:
+        d = f.read(24)
     if d[:8] != b"\x89PNG\r\n\x1a\n" or d[12:16] != b"IHDR":
         raise SystemExit("tile: %s is not a PNG" % path)
     return struct.unpack(">II", d[16:24])
@@ -101,14 +103,16 @@ def write_default_preset(skin_folder, name, vendor, uid4, so, version=1000, effe
     dst = os.path.join(skin_folder, "Presets", "0000-Default.xpl")
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     uid = int.from_bytes(uid4.encode(), "big")
-    open(dst, "w").write(xpl(name, vendor, so_path, uid, version, b"\0", effect=effect))
+    with open(dst, "w", encoding="utf-8") as f:
+        f.write(xpl(name, vendor, so_path, uid, version, b"\0", effect=effect))
     return dst
 
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--decode"]:
         for f in sys.argv[2:]:
-            b = b64dec(re.search(r"<state>(.*?)</state>", open(f).read(), re.S).group(1).strip())
+            with open(f, encoding="utf-8") as fh:
+                b = b64dec(re.search(r"<state>(.*?)</state>", fh.read(), re.S).group(1).strip())
             print("==", f, len(b), "bytes")
             for i in range(0, len(b), 16):
                 c = b[i:i + 16]
