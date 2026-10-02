@@ -69,11 +69,11 @@ def xpl(name, vendor, so_path, uid, version, chunk, preset="Default", effect=Fal
     state = b64enc(fxb_chunk_set(uid, version, chunk))
     date = date or datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
     return ('<?xml version="1.0" encoding="UTF-8"?>\n\n<pluginstate>\n  <version file="1" date="%s"/>\n'
-            '  <PLUGIN name=%s format="VST" category="%s" manufacturer=%s\n'
+            '  <PLUGIN name=%s descriptiveName=%s format="VST" category="%s" manufacturer=%s\n'
             '          version="1.0" file=%s uid="%08x" isInstrument="%d" fileTime="0"\n'
             '          infoUpdateTime="0" numInputs="%d" numOutputs="2" isShell="0"/>\n'
             '  <preset>%s</preset>\n  <state>%s</state>\n</pluginstate>\n'
-            % (date, quoteattr(name), "Effect" if effect else "Synth", quoteattr(vendor), quoteattr(so_path), uid,
+            % (date, quoteattr(name), quoteattr(name), "Effect" if effect else "Synth", quoteattr(vendor), quoteattr(so_path), uid,
                0 if effect else 1, 2 if effect else 0, escape(preset), state))
 
 
