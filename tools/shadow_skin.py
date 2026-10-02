@@ -181,6 +181,9 @@ def apply_theme(top):
         if line.startswith("label_scale="):
             g["LABEL_SCALE"] = float(line[len("label_scale="):].strip())
             continue
+        if line.startswith("scale_names="):
+            g["SCALE_NAMES"] = line[len("scale_names="):].strip() not in ("", "0", "no", "off")
+            continue
         k, _, v = line.partition("=")
         if k.startswith("theme_") and k[6:] in THEME_KEYS:
             g[THEME_KEYS[k[6:]]] = v.strip()
@@ -207,10 +210,13 @@ def expand_pictures(widgets):
     return out
 
 
-# the name under a toggle or a knob, scaled by label_scale (the toggle's box wide enough for it)
-def NAME_FONT(): return 21.0 * LABEL_SCALE
-def NAME_H(): return round(28 * LABEL_SCALE)
-def TOG_W(): return round(170 * LABEL_SCALE)
+# scale_names=1: the names MPC draws under knobs and toggles follow label_scale (21 px x it) and a toggle's box
+# grows with them. Off (the default), they are the fixed 17 px (knob) / 15 px (toggle) names in the 120 px toggle box
+# every existing skin was drawn with, whatever label_scale says.
+SCALE_NAMES = False
+def NAME_FONT(kind): return 21.0 * LABEL_SCALE if SCALE_NAMES else (17.0 if kind == "knob" else 15.0)
+def NAME_H(): return round(28 * LABEL_SCALE) if SCALE_NAMES else 20
+def TOG_W(): return round(170 * LABEL_SCALE) if SCALE_NAMES else 120
 
 
 def toggle_rect(w, base_dir="."):
@@ -676,8 +682,8 @@ def build(layout_path, params, skin_dir, art_bin, png_from_ppm):
                 looks[lid] = lk
             if kind == "knob":
                 r = w["r"]
-                s, cw = 2 * r + 10, max(round(130 * LABEL_SCALE), 2 * r + 10)   # value label width; LFO knobs sit 138 px apart
-                name_h = NAME_H()
+                s, cw = 2 * r + 10, max(round(130 * LABEL_SCALE) if SCALE_NAMES else 130, 2 * r + 10)   # value label width; LFO knobs sit 138 px apart
+                name_h = NAME_H() if SCALE_NAMES else round(20 * LABEL_SCALE)
                 name_y = s // 2 + r + 2
                 value_y = name_y + name_h + 2
                 value_h = round(26 * LABEL_SCALE)
@@ -691,7 +697,7 @@ def build(layout_path, params, skin_dir, art_bin, png_from_ppm):
                     _sub("Knob", {"version": 5, "knobType": "FilmStrip", "filmStrip": "sh_knob_r%d%s.png" % (r, sfx),
                                   "numFrames": ROT_FRAMES, "invert": False, "dragOrientation": "Vertical",
                                   "handleName": "Data"}, _bounds((cw - s) // 2, 0, s, s), "Knob"),
-                    _name_label(0, name_y, cw, name_h, NAME_FONT(), INK),
+                    _name_label(0, name_y, cw, name_h, NAME_FONT("knob"), INK),
                     _sub("Label", {"version": 1, "textStyle": {"version": 1, "font": {"version": 1, "name": "Titillium Web",
                                                                                      "style": "SemiBold", "height": 22.0 * LABEL_SCALE},
                                                                "colour": "ff" + INK_DIM,
@@ -711,18 +717,18 @@ def build(layout_path, params, skin_dir, art_bin, png_from_ppm):
                                    "crop|%s|200|300|%d|%d" % (art("%s_%s" % (img, "on" if on else "off")), tw, th)]
                     defs[key] = _local(key, [_action("Mouse Down", "Q-Link"), _action("Enter Pressed", "Toggle Switch")],
                                        [_focus(cw, ch), _button(img + "_on.png", img + "_off.png", 1, 1, tw, th, (cw - tw) // 2, 0),
-                                        _name_label(0, th + 4, cw, NAME_H(), NAME_FONT(), INK)])
+                                        _name_label(0, th + 4, cw, NAME_H(), NAME_FONT("toggle"), INK)])
                 kids.append(_placed(key, name, i, w["cx"] - cw // 2, w["cy"] - th // 2, cw, ch))
             elif kind == "toggle":
                 cw = TOG_W()
-                key = "shToggle" + (("_ls%g" % LABEL_SCALE) if LABEL_SCALE != 1.0 else "")
+                key = "shToggle" + (("_ls%g" % LABEL_SCALE) if SCALE_NAMES and LABEL_SCALE != 1.0 else "")
                 if key not in defs:
                     for on in (0, 1):
                         script += ["clear|" + under(), "pill|100|100|%d" % on,
                                    "crop|%s|74|86|53|29" % art("sh_pill_%s" % ("on" if on else "off"))]
                     defs[key] = _local(key, [_action("Mouse Down", "Q-Link"), _action("Enter Pressed", "Toggle Switch")],
                                        [_focus(cw, 38 + NAME_H()), _button("sh_pill_on.png", "sh_pill_off.png", 1, 1, 53, 29, (cw - 53) // 2, 4),
-                                        _name_label(0, 34, cw, NAME_H(), NAME_FONT(), INK)])
+                                        _name_label(0, 34, cw, NAME_H(), NAME_FONT("toggle"), INK)])
                 kids.append(_placed(key, name, i, w["cx"] - cw // 2, w["cy"] - 18, cw, 38 + NAME_H()))
             elif kind == "button":
                 x, y, bw, bh = button_rect(w, base_dir)
