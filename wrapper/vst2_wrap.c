@@ -187,17 +187,23 @@ static void setParameter(AEffect *e, int32_t i, float n) {
          * a Q-Link turn from the current one (MPC adds a small delta to what getParameter said). Count those
          * events and step one option per qlink_ticks of them in the same direction, like a detented knob:
          * stepping on every event raced through a list on a slow turn, and the slightest wobble flipped a
-         * switch. Turning back starts over. A jump of half an option or more is no Q-Link tick: it steps now. */
+         * switch. Turning back starts over. A jump of half an option or more is no Q-Link tick (automation, a
+         * drag): it selects the nearest option outright, as the integer branch below sets its value directly. */
         float pos = clamp01(n) * (p->nopts - 1);
         if (fabsf(pos - roundf(pos)) > 0.001f) {
-            nudge = 1;
             float cur = get_norm(w, i) * (p->nopts - 1), d = pos - cur;
-            int ticks = p->qlink_ticks > 0 ? p->qlink_ticks : QLINK_TICKS;
-            if (d * w->qacc[i] < 0) w->qacc[i] = 0;
-            w->qacc[i] += d > 0 ? 1 : -1;
-            if (fabsf(d) < 0.5f && fabsf(w->qacc[i]) < ticks) return;   /* the host reads the same option back */
-            w->qacc[i] = 0;
-            int idx = (int)lroundf(cur) + (d > 0 ? 1 : -1);
+            int ticks = p->qlink_ticks > 0 ? p->qlink_ticks : QLINK_TICKS, idx;
+            nudge = 1;   /* not a pick: an open popup list stays open */
+            if (fabsf(d) >= 0.5f) {
+                w->qacc[i] = 0;
+                idx = d > 0 ? (int)floorf(pos + 0.5f) : (int)ceilf(pos - 0.5f);   /* nearest option, a tie toward the move */
+            } else {
+                if (d * w->qacc[i] < 0) w->qacc[i] = 0;
+                w->qacc[i] += d > 0 ? 1 : -1;
+                if (fabsf(w->qacc[i]) < ticks) return;   /* the host reads the same option back */
+                w->qacc[i] = 0;
+                idx = (int)lroundf(cur) + (d > 0 ? 1 : -1);
+            }
             if (idx < 0) idx = 0;
             if (idx > p->nopts - 1) idx = p->nopts - 1;
             n = (float)idx / (p->nopts - 1);
