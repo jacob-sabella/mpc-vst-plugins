@@ -101,11 +101,11 @@ typedef struct {
     double bpm;
     volatile int holdFrames[NPARAMS];  /* momentary params: frames left before reporting back to 0 (hold_ms) */
     float qacc[NPARAMS];     /* qlink_ticks: turn events counted toward the next step (see setParameter) */
-    signed char last_on[NPARAMS];  /* last "<key>_on" value told to the host, +1 (0 = unknown) */
+    signed char last_on[NPARAMS];  /* last "<key>_on" value told to the host, +1 (0 = unknown, -1 = the engine has no such key) */
     int playing;             /* HAS_TRANSPORT: last transport state sent */
     double ppq;              /* HAS_TRANSPORT: song position at the last block, to spot a jump back */
     unsigned last_text[NPARAMS];   /* hash of a text readout's last value (see housekeeping) */
-    int on_poll;                   /* frames until the next "<key>_on" / readout poll (see housekeeping) */
+    int on_poll, text_poll;        /* frames until the next "<key>_on" poll / readout poll (see housekeeping) */
     volatile char need_update_display;  /* deferred audioMasterUpdateDisplay -- see setParameter() */
     int rev_frames;          /* HAS_DISPLAY_REV: frames until the next poll */
     char last_rev[16];       /* HAS_DISPLAY_REV: the "display_rev" last seen */
@@ -329,12 +329,18 @@ static void housekeeping(AEffect *e, int32_t n) {
      * - list-tile selection ("<key>_on"): the host doesn't re-read a button's value on UpdateDisplay, so push
      *   a change with audioMasterAutomate (a tile lights while the pad is held);
      * - a readout's text: the host only re-reads it on UpdateDisplay, so ask for one when the text changed (a
-     *   chord name on a page without tiles stayed stale until something else was tapped). */
-    if ((w->on_poll -= n) <= 0) {
-        w->on_poll = 441;
-        for (int i = 0; i < NPARAMS; i++) {
-            if (!PARAMS[i].string_display) continue;
-            char k2[96], b2[64];
+     *   chord name on a page without tiles stayed stale until something else was tapped).
+     * Only "display":"string" params without "poll":false are polled. A "<key>_on" the engine does not answer is
+     * asked once, then skipped. The text poll runs every 100 ms, so a readout that changes constantly (a clock)
+     * asks for at most 10 UpdateDisplays a second. Costs about one get_param per polled param per poll on the
+     * audio thread; docs/BENCH.md measures it (Chordsmith, 10 polled params: idle p99 under 4% of a block). */
+    int poll_on = (w->on_poll -= n) <= 0, poll_text = (w->text_poll -= n) <= 0;
+    if (poll_on) w->on_poll = 441;
+    if (poll_text) w->text_poll = 4410;
+    for (int i = 0; poll_on && i < NPARAMS; i++) {
+        if (!PARAMS[i].string_display || PARAMS[i].no_poll) continue;
+        char k2[96], b2[64];   /* 64: the hash sees the first 63 characters, enough for a 47-character readout */
+        if (w->last_on[i] >= 0) {
             snprintf(k2, sizeof k2, "%s_on", PARAMS[i].key);
             if (g_api->get_param(w->dsp, k2, b2, sizeof b2) > 0) {
                 int on = atoi(b2) ? 1 : 0;
@@ -343,14 +349,15 @@ static void housekeeping(AEffect *e, int32_t n) {
                     w->master(&w->fx, audioMasterAutomate, i, 0, 0, (float)on);
                     w->need_update_display = 1;
                 }
-            }
-            if (g_api->get_param(w->dsp, PARAMS[i].key, b2, sizeof b2) > 0) {
-                unsigned h = 2166136261u;   /* FNV-1a */
-                for (const char *s = b2; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u;
-                if (h != w->last_text[i]) {
-                    w->last_text[i] = h;
-                    w->need_update_display = 1;
-                }
+            } else
+                w->last_on[i] = -1;
+        }
+        if (poll_text && g_api->get_param(w->dsp, PARAMS[i].key, b2, sizeof b2) > 0) {
+            unsigned h = 2166136261u;   /* FNV-1a */
+            for (const char *s = b2; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u;
+            if (h != w->last_text[i]) {
+                w->last_text[i] = h;
+                w->need_update_display = 1;
             }
         }
     }
