@@ -62,7 +62,7 @@ int main(void) {
         CHECK(fabsf(a->getP(a, en) - (float)(n - 2) / (n - 1)) < 1e-3f, "nudge steps one option (%.3f)", a->getP(a, en));
         /* Q-Link ticks, as MPC sends them (a small delta from the current option): one option per qlink_ticks
          * events the same way, a turn back starts over */
-        int ticks = PARAMS[en].qlink_ticks > 0 ? PARAMS[en].qlink_ticks : 3;
+        int ticks = PARAMS[en].qlink_ticks > 0 ? PARAMS[en].qlink_ticks : 6;   /* QLINK_TICKS */
         float tick = 0.1f / (n - 1);
         a->setP(a, en, 0);
         for (int k = 0; k < ticks - 1; k++) a->setP(a, en, a->getP(a, en) + tick);

@@ -99,8 +99,10 @@ typedef struct {
 
 static const mpc_engine_t *g_api;
 
-/* Q-Link turn events per option of a list, unless a param sets qlink_ticks (see setParameter) */
-#define QLINK_TICKS 3
+/* Q-Link turn events per option of a list, unless a param sets qlink_ticks (see setParameter). An event is one
+ * 1/128 step of the range on the Key 37's smooth encoders, which give about 80 of them per revolution, so a
+ * 9-option list takes about half a turn at 6 (3 ran through it in a quarter turn; docs/NOTES.md "Q-Links") */
+#define QLINK_TICKS 6
 
 static float clamp01(float v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
