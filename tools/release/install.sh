@@ -72,6 +72,10 @@ fi
 NEW="$SYNTHS/$SKIN"; STAGE="$SYNTHS/.$SKIN.new"; OLD="$SYNTHS/.$SKIN.old"
 rm -rf "$STAGE" "$OLD"
 cp -a "portable/$SKIN" "$STAGE"
+for f in "$STAGE"/Presets/*.xpl; do   # shipped presets name the plugin with the same placeholder as plugin-meta.xml
+    [ -f "$f" ] || continue
+    sed "s|%payload-path%|$SYNTHS|g" "$f" > "$f.new" && mv "$f.new" "$f"
+done
 if [ -f MODES ]; then   # a zip unpacked on Windows or copied file by file loses exec bits and symlinks: put them back
     TAB=$(printf '\t')
     while IFS=$TAB read -r kind rel target; do
