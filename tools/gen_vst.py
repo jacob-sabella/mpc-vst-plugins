@@ -13,6 +13,7 @@ vst.json (paths are relative to the vst.json's folder):
       "layout": "layout.conf",                   # optional; without it the skin studio's auto-layout is used
       "short_names": {"LFO1 > ": "L1 "},          # optional on-screen name shortening
       "art": "html",                             # optional: draw the skin artwork in a browser (tools/html_art.py)
+      "tile": "art/tile.png",                    # optional: 270x110 Instruments-browser tile (+ a Default preset; tools/xpl.py)
       "effect": true,                            # optional: an audio effect (2 inputs, category Effect); the engine provides process()
       "custom_skin": true,                       # optional: params.h + plugin-list entry only; the port makes the skin itself
       "defines": {"HAS_LFO_BPM": 1},             # optional extra #defines in params.h
@@ -196,7 +197,13 @@ def main():
     shutil.rmtree(os.path.join(build, "skin"), ignore_errors=True)   # no stale images from older builds
     art = os.environ.get("SHADOW_ART") or (os.path.join(TOOLS, "html_art.py") if cfg.get("art") == "html"
                                            else os.path.join(build, "shadow_art"))
-    print("skin:", shadow_skin.write_skin(os.path.join(build, "skin"), cfg["vendor"], cfg["name"], layout, plist, art))
+    skin = shadow_skin.write_skin(os.path.join(build, "skin"), cfg["vendor"], cfg["name"], layout, plist, art)
+    print("skin:", skin)
+    if cfg.get("tile"):   # the browser tile only does something with a preset to open: ship a Default one with it
+        import xpl
+        print("tile:", xpl.write_tile(os.path.join(here, cfg["tile"]), skin))
+        print("preset:", xpl.write_default_preset(skin, cfg["name"], cfg["vendor"], cfg["uid"], cfg["so"],
+                                                  cfg.get("version", 1000), bool(cfg.get("effect"))))
 
 
 if __name__ == "__main__":
