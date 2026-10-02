@@ -25,9 +25,13 @@ static intptr_t host(AEffect*e,int32_t op,int32_t i,intptr_t v,void*p,float o){
     return 0;
 }
 #define CHECK(c, ...) do { printf("%s ", (c) ? "ok  " : "FAIL"); printf(__VA_ARGS__); printf("\n"); if (!(c)) fails++; } while (0)
-static void run(AEffect *a, int blocks) { float L[128], R[128], *o[2] = {L, R}; for (int k = 0; k < blocks; k++) a->pr(a, 0, o, 128); }
+/* Input for an effect ("effect": true): a quiet 440 Hz sine, or silence. An instrument ignores it, but the
+ * wrapper's effect path reads both channels, so a NULL input crashed it. */
+static float SINE_L[128], SINE_R[128], ZERO_L[128], ZERO_R[128], *SINE[2] = {SINE_L, SINE_R}, *ZERO[2] = {ZERO_L, ZERO_R};
+static void run(AEffect *a, int blocks) { float L[128], R[128], *o[2] = {L, R}; for (int k = 0; k < blocks; k++) a->pr(a, SINE, o, 128); }
 
 int main(void) {
+    for (int i = 0; i < 128; i++) SINE_L[i] = SINE_R[i] = 0.25f * sinf(6.2831853f * 440.0f * i / 44100.0f);
     AEffect *a = VSTPluginMain(host), *b = VSTPluginMain(host);
     CHECK(a && b && a != b, "two instances");
     if (!a || !b) return 1;
@@ -110,14 +114,14 @@ int main(void) {
     ME m = {1, sizeof(ME), 0, 0, 0, 0, {0x90, 60, 100, 0}}; EV ev = {1, 0, {&m, 0}};
     a->d(a, 25, 0, 0, &ev, 0);
     float L[128], R[128], *o[2] = {L, R}; double e = 0;
-    for (int k = 0; k < 40; k++) { a->pr(a, 0, o, 128); for (int i = 0; i < 128; i++) e += L[i] * L[i] + R[i] * R[i]; }
+    for (int k = 0; k < 40; k++) { a->pr(a, SINE, o, 128); for (int i = 0; i < 128; i++) e += L[i] * L[i] + R[i] * R[i]; }
     double rms = sqrt(e / (40 * 256));
-    printf("%s note 60 -> rms %.4f\n", rms > 1e-5 ? "ok  " : "warn", rms);   /* an effect or a silent patch may be legitimately 0 */
+    printf("%s note 60 -> rms %.4f\n", rms > 1e-5 ? "ok  " : "warn", rms);   /* a silent patch may be legitimately 0; an effect gets the sine */
 
     {   /* instance b never got a note: the legacy process() must add silence, leaving 1.0 */
         float L1[128], R1[128], *o1[2] = {L1, R1}; int kept = 1;
         for (int i = 0; i < 128; i++) L1[i] = R1[i] = 1.0f;
-        ((void (*)(AEffect *, float **, float **, int32_t))b->p)(b, 0, o1, 128);
+        ((void (*)(AEffect *, float **, float **, int32_t))b->p)(b, ZERO, o1, 128);
         for (int i = 0; i < 128; i++) kept &= fabsf(L1[i] - 1.0f) < 0.01f && fabsf(R1[i] - 1.0f) < 0.01f;
         CHECK(kept, "process() accumulates into the output instead of overwriting it");
     }
