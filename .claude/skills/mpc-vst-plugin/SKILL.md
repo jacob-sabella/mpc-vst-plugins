@@ -41,11 +41,13 @@ Stop any separately attached audio engines first.
 7. The user tests on the device: plugin list → insert → play → edit screen → Q-Links → save/reload project.
 
 ## Gotchas
-- Integer DSP params: set `"display": "int"`. The wrapper then rounds and keeps the unrounded knob position, so slow
-  Q-Link turns accumulate (else they stick between two values). List-tile highlights need `<key>_on` from the DSP
+- Integer DSP params: set `"display": "int"`. The wrapper then rounds, and `settle()` steps it toward the way the knob
+  moves, so a Q-Link or data wheel nudge moves one step (else it sticks between two values). List-tile highlights need `<key>_on` from the DSP
   (polled every 10 ms, so a tile can light from MIDI alone; `theme_tile_on=` fills the lit tile, `list ... order=pads`
-  numbers the rows from the bottom like a pad bank). A Q-Link steps an option list one option per `QLINK_TICKS`
-  turn events (`"qlink_ticks": N` per param, also for a short `"display": "int"` range such as a MIDI channel).
+  numbers the rows from the bottom like a pad bank). A Q-Link or wheel event steps an option list one option;
+  `"qlink_ticks": N` on a param counts N events per step instead (a short list, or a `"display": "int"` range such as a
+  MIDI channel, that a slow turn races through; 6 felt right on a Key 37). The data wheel then takes N clicks too.
+  Readouts longer than 23 characters need `"defines": {"PARAM_TEXT_MAX": 48}` in vst.json.
   The orange box on a control is the transparent-able Focus ring, not Q-Link bounds. Details: docs/NOTES.md
   "Skin design lessons from the jv880 redesign".
 - AEffect magic `'VstP'` 0x56737450 (the forum PoC's value is wrong).
