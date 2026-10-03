@@ -117,9 +117,9 @@ def gen_params(cfg, params, out):
         # ranges a slow Q-Link turn races through (a MIDI channel, a list of sets) want more; the data wheel then
         # takes that many clicks per step too, since MPC sends both alike.
         qticks = int(p.get("qlink_ticks", 0))
-        # "poll": false -- a "display":"string" param the wrapper should not poll every 10 ms for "<key>_on" and
-        # for text changes (housekeeping in vst2_wrap.c): a readout that only changes on a tap, or one whose
-        # get_param() is costly.
+        # "poll": false -- a "display":"string" param the wrapper should not poll for "<key>_on" (every 10 ms) and
+        # for text changes (every 100 ms; housekeeping in vst2_wrap.c): a readout that only changes on a tap, or
+        # one whose get_param() is costly.
         no_poll = int(p.get("poll", True) is False)
         if opts:
             lines.append("static const char *const OPTS_%d[] = {%s};" % (i, ", ".join(c_str(o) for o in opts)))
