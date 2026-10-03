@@ -625,8 +625,9 @@ path if the DSP returns nothing. The DSP answers it with real selection state (j
   Follow-up (2026-10-01, Chordsmith): that push only ran after a parameter set, so a tile whose `_on` changed
   from MIDI alone (a pad plays a chord, nothing on screen touched) never lit. `housekeeping()` now polls every
   `_on` every 10 ms (441 frames) and pushes a change with `audioMasterAutomate` plus an `UpdateDisplay`;
-  verified on the device: the tile lights while the pad is held and goes dark on release. The same poll hashes
-  every text readout's value and asks for an `UpdateDisplay` when it changed: on a page without tiles a chord
+  verified on the device: the tile lights while the pad is held and goes dark on release. A second poll, every
+  100 ms (4410 frames, counted on its own whatever the block size), hashes every text readout's value and asks
+  for an `UpdateDisplay` when it changed: on a page without tiles a chord
   name played from MIDI stayed stale until something else was tapped (seen in a screen recording). Skin side:
   `theme_tile_on=RRGGBB` fills the selected/sounding tile (default: the LCD fill, border only) and
   `list ... order=pads` numbers the rows from the bottom like a pad bank (pad 1 bottom left).
