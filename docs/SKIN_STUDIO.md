@@ -299,3 +299,11 @@ a touch to the wrong control. Toggles take `bw=` and `ns=0` (the switch alone); 
 ## Coming next
 Tracked in [ROADMAP.md](ROADMAP.md) ("Skin controls" and "Porting and tooling"), including a build-and-preview
 button in the browser editor.
+
+## More than one interface
+
+A plugin can ship several interfaces and let the user pick one from inside it. The constraint is that MPC
+binds a skin at insert and has no reload call, and that `when=` hides widgets but never tabs — so variants
+with different navigation live in separate folders and the switch copies two small files. Recipe, engine
+contract and the measurements: [SKIN_VARIANTS.md](SKIN_VARIANTS.md). Build the folder with
+`tools/make_skinset.py`.

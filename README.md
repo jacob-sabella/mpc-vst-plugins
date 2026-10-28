@@ -85,7 +85,7 @@ What the tools can do:
 - **A release workflow** (`vst-release.yml`): a reusable GitHub Actions workflow that builds, tests, previews and
   packages a port into a draft release; you test the draft zip on a device, then publish.
 - **Skin Studio**, a page editor in your browser: double-click `SkinStudio.command` (macOS), `SkinStudio.bat`
-  (Windows) or `SkinStudio.sh` (Linux). It needs Python 3. See [docs/SKIN_STUDIO.md](docs/SKIN_STUDIO.md).
+  (Windows) or `SkinStudio.sh` (Linux). It needs Python 3. See [docs/SKIN_STUDIO.md](docs/SKIN_STUDIO.md). Several interfaces in one plugin: [docs/SKIN_VARIANTS.md](docs/SKIN_VARIANTS.md).
 
 ## How it works
 
