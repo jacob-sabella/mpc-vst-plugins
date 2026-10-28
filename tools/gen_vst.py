@@ -383,7 +383,8 @@ def main():
     shutil.rmtree(os.path.join(build, "skin"), ignore_errors=True)   # no stale images from older builds
     art = os.environ.get("SHADOW_ART") or (os.path.join(TOOLS, "html_art.py") if cfg.get("art") == "html"
                                            else os.path.join(build, "shadow_art"))
-    skin = shadow_skin.write_skin(os.path.join(build, "skin"), cfg["vendor"], cfg["name"], layout, plist, art)
+    skin = shadow_skin.write_skin(os.path.join(build, "skin"), cfg["vendor"], cfg["name"], layout, plist, art,
+                                  version=cfg.get("version", 1000))
     print("skin:", skin)
     import skin_check   # overlapping touch boxes, boxes off the screen, Q-Links on unseen parameters
     for f in skin_check.check(skin):
