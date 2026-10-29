@@ -177,6 +177,14 @@ rm -rf /tmp/openmpc-pm; /tmp/drive_addins one Mine-1.0.0 1 > /tmp/safe-local.out
 grep -q "apply_state 3" /tmp/safe-local.out || { cat /tmp/safe-local.out; ls -la "$LD"; exit 1; }
 sh /tmp/openmpc-pm/apply.sh
 grep -q "^local-Mine-1.0.0|ok|install local" /tmp/openmpc-pm/result
+# the same with no catalog at all (no network): the zip is still a card, the status says so, and it still installs
+gcc $SAN -DFS_ANY=1 -DCATALOG_URL=\"file:///nonexistent/catalog.json\" -std=gnu11 -w src/manager.c tests/drive.c -lpthread -ldl -o /tmp/drive_offline
+rm -rf /tmp/openmpc-pm; /tmp/drive_offline status > /tmp/safe-offline-status.out
+grep -qF "showing the zips in local-plugins (1)" /tmp/safe-offline-status.out || { cat /tmp/safe-offline-status.out; exit 1; }
+rm -rf /tmp/openmpc-pm; /tmp/drive_offline one Mine-1.0.0 1 > /tmp/safe-offline.out
+grep -q "apply_state 3" /tmp/safe-offline.out || { cat /tmp/safe-offline.out; exit 1; }
+sh /tmp/openmpc-pm/apply.sh
+grep -q "^local-Mine-1.0.0|ok|install local" /tmp/openmpc-pm/result || { cat /tmp/openmpc-pm/result /tmp/openmpc-pm/apply.log; exit 1; }
 rm -rf "$LD"
 # backups pile up: after a success only the newest 10 MPC.settings.bak-* stay, and nothing else is touched
 SD=$(dirname "$(find /media /data -name MPC.settings 2>/dev/null | head -n 1)")

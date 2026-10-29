@@ -57,7 +57,7 @@ the project's development**: the catalog, its release rules and the official way
 **Extras**
 - **Light and dark theme** (the THEME pill; applied at the next restart, because MPC keeps skins in memory). Light is the default.
 - **Local zips:** put a package zip in `local-plugins/` next to a content location's parent (for example `/nvme/local-plugins/`) and it appears as a
-  card marked *by local zip*, with its own SHA-256 shown. Nothing vouches for it, so the usual checks still apply.
+  card marked *by local zip*, with its own SHA-256 shown. Nothing vouches for it, so the usual checks still apply. Works with no network (0.2.3).
 - **Register folders MPC does not list:** a plugin folder (with its `plugin-meta.xml`) copied by hand, or dropped from the list, appears in
   *Installed* with a **REGISTER** button that adds its entry to the plugin list.
 
@@ -105,9 +105,10 @@ for new installs; updates always stay where the plugin already is.
    Create the `local-plugins` folder if it is not there. With SSH: `ssh root@<device-ip> mkdir -p /nvme/local-plugins`, then
    `scp <the zip> root@<device-ip>:/nvme/local-plugins/`. Without SSH, use the USB plugin manager stick instead: it has its own `local-plugins` folder on
    the stick (the **Local** tab), which also works offline. The folders the manager looks in are the ones in `device.txt` (see below) under "usable".
-3. **Open the manager** (add *Plugin Manager G2* to a track) with the MPC online: the zips are read together with the catalog, so in this version a local zip
-   does not show up when the catalog cannot be loaded. The list is read when the manager opens and on **REFRESH**; if you copied the zip while it was open,
-   close and reopen it. The zip appears as a card marked **local zip**, newest first, named after the file; search for part of the file name if the list is long.
+3. **Open the manager** (add *Plugin Manager G2* to a track). **No network is needed** (from 0.2.3): if the catalog cannot be loaded, the manager says so in
+   a small warning, and still lists the zips in `local-plugins`, what is installed and any folder to register. The list is read when the manager opens and on
+   **REFRESH**; if you copied the zip while it was open, press **REFRESH** or close and reopen it. In 0.2.2 and earlier a local zip showed up only while
+   the catalog loaded. The zip appears as a card marked **local zip**, newest first, named after the file; search for part of the file name if the list is long.
 4. **Tap the card, then INSTALL, then APPLY.** Check the summary (it shows where the plugin will go; **CHANGE** steps through the usable places) and
    confirm. Save your project first: MPC restarts once, exactly as for a catalog plugin.
 
