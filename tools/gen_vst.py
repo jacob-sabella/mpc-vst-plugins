@@ -8,6 +8,9 @@
 vst.json (paths are relative to the vst.json's folder):
     {
       "name": "My Synth", "vendor": "me", "uid": "MySy", "version": 1000,
+                                                 # VST2 int major*1000+minor*100+patch*10+build (3.1.2 -> 3120):
+                                                 # PLUG_VERSION and the skin's version.xml (one digit each for
+                                                 # minor/patch/build; docs/PORTING.md)
       "so": "my_synth.so",                       # lives in the plugin folder /sdcard/Synths/<vendor> - VST - <name>/
       "params": "params.json",                   # parameter list (tools/params.py), in VST index order
       "layout": "layout.conf",                   # optional; without it the skin studio's auto-layout is used
