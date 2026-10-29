@@ -87,7 +87,7 @@ for new installs; updates always stay where the plugin already is.
 
 ![The restart prompt on a Force: "Install to: /media/662522/Synths (2 of 2)" with a CHANGE button](docs/screenshots/manager-install-location.png)
 
-**Install a plugin by hand (a zip you downloaded).** For a plugin that is not in the catalog, a beta you were sent, or when the MPC has no network:
+**Install a plugin by hand (a zip you downloaded).** For a plugin that is not in the catalog, or a beta you were sent:
 
 1. **Get the right zip.** It must be the plugin's *package* zip, the file published for the plugin (on its catalog page or its GitHub release), not the
    "Source code" zip GitHub offers. A package carries an `install.sh` and an `mpc-plugin.json`, and is built for one CPU: `-mpc-armv7.zip` for a Gen1
@@ -104,8 +104,9 @@ for new installs; updates always stay where the plugin already is.
 
    Create the `local-plugins` folder if it is not there. With SSH: `ssh root@<device-ip> mkdir -p /nvme/local-plugins`, then
    `scp <the zip> root@<device-ip>:/nvme/local-plugins/`. Without SSH, use the USB plugin manager stick instead: it has its own `local-plugins` folder on
-   the stick (the **Local** tab), and works offline. The folders the manager looks in are the ones in `device.txt` (see below) under "usable".
-3. **Open the manager** (add *Plugin Manager G2* to a track). It reads `local-plugins` when it starts, so if you copied the zip while it was open,
+   the stick (the **Local** tab), which also works offline. The folders the manager looks in are the ones in `device.txt` (see below) under "usable".
+3. **Open the manager** (add *Plugin Manager G2* to a track) with the MPC online: the zips are read together with the catalog, so in this version a local zip
+   does not show up when the catalog cannot be loaded. The list is read when the manager opens and on **REFRESH**; if you copied the zip while it was open,
    close and reopen it. The zip appears as a card marked **local zip**, newest first, named after the file; search for part of the file name if the list is long.
 4. **Tap the card, then INSTALL, then APPLY.** Check the summary (it shows where the plugin will go; **CHANGE** steps through the usable places) and
    confirm. Save your project first: MPC restarts once, exactly as for a catalog plugin.
