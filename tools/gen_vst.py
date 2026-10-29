@@ -8,6 +8,9 @@
 vst.json (paths are relative to the vst.json's folder):
     {
       "name": "My Synth", "vendor": "me", "uid": "MySy", "version": 1000,
+                                                 # VST2 int major*1000+minor*100+patch*10+build (3.1.2 -> 3120):
+                                                 # PLUG_VERSION and the skin's version.xml (one digit each for
+                                                 # minor/patch/build; docs/PORTING.md)
       "so": "my_synth.so",                       # lives in the plugin folder /sdcard/Synths/<vendor> - VST - <name>/
       "params": "params.json",                   # parameter list (tools/params.py), in VST index order
       "layout": "layout.conf",                   # optional; without it the skin studio's auto-layout is used
@@ -383,7 +386,8 @@ def main():
     shutil.rmtree(os.path.join(build, "skin"), ignore_errors=True)   # no stale images from older builds
     art = os.environ.get("SHADOW_ART") or (os.path.join(TOOLS, "html_art.py") if cfg.get("art") == "html"
                                            else os.path.join(build, "shadow_art"))
-    skin = shadow_skin.write_skin(os.path.join(build, "skin"), cfg["vendor"], cfg["name"], layout, plist, art)
+    skin = shadow_skin.write_skin(os.path.join(build, "skin"), cfg["vendor"], cfg["name"], layout, plist, art,
+                                  version=cfg.get("version", 1000))
     print("skin:", skin)
     import skin_check   # overlapping touch boxes, boxes off the screen, Q-Links on unseen parameters
     for f in skin_check.check(skin):

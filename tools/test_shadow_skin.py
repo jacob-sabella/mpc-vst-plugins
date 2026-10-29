@@ -414,6 +414,28 @@ class InlinedSvgs(unittest.TestCase):
             self.assertNotRegex(part, r'(url\(\s*[\'"]?#|href="#)(g|c)\b')
 
 
+class VersionXml(unittest.TestCase):
+    """version.xml used to say 1.0.0.0 for every port, whatever vst.json claimed (found on a 3.1.0 plugin)."""
+
+    def test_vst_int_becomes_four_parts(self):
+        for v, want in ((1000, "1.0.0.0"), (2000, "2.0.0.0"), (3100, "3.1.0.0"), (3125, "3.1.2.5"),
+                        (1, "0.0.0.1"), (None, "1.0.0.0")):
+            self.assertEqual(shadow_skin.vst_version(v), want, v)
+
+    def test_version_xml_carries_vendor_slug_and_version(self):
+        s = shadow_skin.version_xml("MPCDJ", "MPC DJ FX 2", 3110)
+        self.assertIn("<identifier>MPCDJ.vst.mpcdjfx2</identifier>", s)
+        self.assertIn("<version>3.1.1.0</version>", s)
+        self.assertNotIn("1.0.0.0</version>", s)
+
+    def test_a_field_above_nine_rolls_into_the_one_to_its_left(self):
+        # The documented limit (vst_version docstring, docs/PORTING.md): one decimal digit each for minor, patch
+        # and build. patch 10 and minor 1 are the same int, so it cannot be rejected here -- pinned so that the
+        # roll-over stays a known property and not a surprise in a released skin.
+        for v, want in ((3200, "3.2.0.0"), (3500, "3.5.0.0"), (10, "0.0.1.0")):
+            self.assertEqual(shadow_skin.vst_version(v), want, v)
+
+
 class HtmlArtBoxButton(unittest.TestCase):
     """A layout `button ... w= h=` line becomes the `boxbtn` draw op. html_art had no branch for it, so every
     art:html build with a sized button failed (found porting MPC DJ FX 2, 2026-10-27); these tests keep the

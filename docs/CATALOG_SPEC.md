@@ -16,7 +16,7 @@ The plugin is **one self-contained folder**, the same shape as installers that c
 content folder and register it from a file inside it (Locrian's builds; verified on a Force 2026-09-29, `docs/NOTES.md`):
 ```
 <Vendor> - VST - <Name>/
-  version.xml          identical to our skin's version.xml (<plugincontent>, identifier <vendor>.vst.<name>, version 1.0.0.0)
+  version.xml          identical to our skin's version.xml (<plugincontent>, identifier <vendor>.vst.<name>, version from vst.json `version`, e.g. 3.1.2.0)
   plugin-meta.xml      the plugin-list <PLUGIN .../> element, with file="%payload-path%/<Vendor> - VST - <Name>/<so>"
   <name>.so            the plugin, inside the skin folder
   Plugin Skins/        the skin

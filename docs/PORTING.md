@@ -28,6 +28,12 @@ just call it (a build that links `wrapper/vst2_wrap.c` itself must add `-lpthrea
 it on the device's glibc 2.31 toolchain). Don't vendor copies of the wrapper or tools -- a port source that implements `mpc_engine()` itself
 can `#include "engine.h"` directly (the builder puts `wrapper/` on the include path). Then bench it (docs/BENCH.md) and package it (docs/RELEASING.md).
 
+`vst.json` `"version"` is the VST2 int, `major*1000 + minor*100 + patch*10 + build` (3.1.2 -> `3120`): gen_vst.py
+writes it as `PLUG_VERSION` and the skin's `version.xml` now takes its four-part `<version>` from it too (2026-10-28,
+offline-tested: the int decomposition and the file contents in `tools/test_shadow_skin.py`) -- before, every skin
+shipped `1.0.0.0` and MPC listed a 3.1.1 plugin as 1.0.0.0. One decimal digit each for minor, patch and build, any
+number for major: a patch above 9 rolls into the minor (that cannot be told from the int), so bump the minor.
+
 **Vendor the engine's own source into the port's repo; don't fetch it at build time.** If the DSP comes from a
 third-party upstream (another project's synth module, an emulator core, anything not written in this repo), `git clone` it
 into the port's repo as committed files (`src/dsp/` or similar), not into a gitignored scratch dir pulled fresh

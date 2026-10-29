@@ -1517,7 +1517,27 @@ def to_mpc2x(tui):
     return tui
 
 
-def write_skin(outdir, vendor, name, layout_path, params, art_bin, mpc_os=None):
+def vst_version(v):
+    """vst.json "version" (the VST2 int: 1000 = 1.0.0.0, 3100 = 3.1.0.0) -> MPC's four-part version.xml string.
+    Every port used to ship 1.0.0.0 regardless, so MPC showed 1.0.0.0 for a 3.1.0 plugin (found 2026-10-28).
+
+    The int is the only version carrier here: gen_vst.py writes it verbatim as PLUG_VERSION and returns it from
+    effGetVendorVersion (wrapper/vst2_wrap.c), so the decomposition below is exactly what the host read before.
+    Its fields are positional, major*1000 + minor*100 + patch*10 + build: one decimal digit for minor, patch and
+    build, any number for major. A minor or patch above 9 rolls into the field left of it (patch 10 is the next
+    minor: 3190 + 10 = 3200 reads as 3.2.0.0), and that roll-over cannot be detected from the int alone, so keep
+    each digit in 0..9 -- 3.1.10 is not representable, ship 3.2.0 instead."""
+    v = int(v if v is not None else 1000)
+    return "%d.%d.%d.%d" % (v // 1000, (v // 100) % 10, (v // 10) % 10, v % 10)
+
+
+def version_xml(vendor, name, version=None):
+    return ("<?xml version='1.0' encoding='utf-8'?>\n<plugincontent version=\"1.0\">\n"
+            "\t<identifier>%s.vst.%s</identifier>\n\t<version>%s</version>\n</plugincontent>\n"
+            % (vendor, name.lower().replace(" ", ""), vst_version(version)))
+
+
+def write_skin(outdir, vendor, name, layout_path, params, art_bin, mpc_os=None, version=None):
     """Build the whole skin folder <outdir>/<vendor> - VST - <name>/ from a layout. Needs Pillow.
     mpc_os=2 (or SHADOW_SKIN_MPC_OS=2) writes TUI.json in the older MPC OS 2.x shape (to_mpc2x); default is 3.x."""
     import json
@@ -1540,10 +1560,7 @@ def write_skin(outdir, vendor, name, layout_path, params, art_bin, mpc_os=None):
     qlinks = {"version": 4, "info": {"version": 1, "type": "CompleteDescription"},
               "Screen Mode Q-Links": {"version": 4, "map": qmap},
               "Program Mode Q-Links": program_qlinks(layout_path, params, qmap)}
-    open(os.path.join(d, "version.xml"), "w").write(
-        "<?xml version='1.0' encoding='utf-8'?>\n<plugincontent version=\"1.0\">\n"
-        "\t<identifier>%s.vst.%s</identifier>\n\t<version>1.0.0.0</version>\n</plugincontent>\n"
-        % (vendor, name.lower().replace(" ", "")))
+    open(os.path.join(d, "version.xml"), "w").write(version_xml(vendor, name, version))
     for f, obj in (("TUI.json", tui), ("Q-Links.json", qlinks), ("Q-Links - 8by1.json", qlinks)):
         # a huge TUI.json (every nested Q-Link page repeats its tab's layout) is written compact: the indentation alone is
         # about 3/4 of the file, which MPC has to read and parse when the plugin loads. Small skins stay byte-identical.
