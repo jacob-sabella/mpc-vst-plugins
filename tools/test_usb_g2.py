@@ -145,7 +145,7 @@ class Device(Tmp):
             self.locations.append(str(folder))
         return str(folder)
 
-    def run_device(self, candidates, arch="armv7", rc=0, tamper=None):
+    def run_device(self, candidates, arch="armv7", rc=0, tamper=None, internal=None):
         settings = self.p / "MPC.settings"
         settings.write_text("<PROPERTIES><VALUE name=\"SynthContentLocations\"><SynthContentLocations>%s</SynthContentLocations></VALUE></PROPERTIES>" %
                             "".join("<Location>%s</Location>" % l for l in self.locations))
@@ -159,7 +159,11 @@ class Device(Tmp):
         shim.write_text("#!/bin/sh\nexec %s -I -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[3]).extractall(sys.argv[5])' \"$@\"\n" % sys.executable)
         shim.chmod(0o755)
         env = dict(os.environ, MPC_USB_TEST="1", MPC_G2_ARCH=arch, MPC_SETTINGS=str(settings), MPC_MOUNTS=str(mounts),
-                   MPC_G2_CANDIDATES=" ".join(candidates), STUB_LOG=str(self.log), STUB_RC=str(rc), PATH=str(self.p / "bin") + os.pathsep + os.environ["PATH"])
+                   STUB_LOG=str(self.log), STUB_RC=str(rc), PATH=str(self.p / "bin") + os.pathsep + os.environ["PATH"])
+        if candidates is not None:
+            env["MPC_G2_CANDIDATES"] = " ".join(candidates)
+        if internal:
+            env["MPC_G2_INTERNAL"] = " ".join(internal)
         r = subprocess.run(["sh", str(self.stick / "autorun/open.sh")], capture_output=True, text=True, env=env)
         result = (self.stick / "g2-install-result.txt").read_text() if (self.stick / "g2-install-result.txt").exists() else ""
         return r, result
@@ -217,6 +221,40 @@ class Device(Tmp):
         self.assertIn("what this device has", result)
         self.assertFalse(self.log.exists())
 
+    def test_candidates_come_from_the_settings_and_only_internal_ones_count(self):
+        # a Gen1 One: MPC lists /media/az01-internal/Synths and a card; no fixed path list is needed
+        self.mounts, self.locations = [], []
+        internal = self.candidate("az01-internal")
+        card = self.candidate("card")
+        r, result = self.run_device(None, internal=[str(self.fs / "az01-internal")])
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("ARGS: -y -t %s" % internal, self.log.read_text())
+        self.assertNotIn(card, result)
+
+    def test_two_paths_to_one_folder_count_once(self):
+        self.mounts, self.locations = [], []
+        a = self.candidate("nvme")
+        link = self.fs / "link"
+        link.symlink_to(self.fs / "nvme")
+        self.mounts.append("/dev/fake %s ext4 rw,relatime 0 0\n" % link)
+        self.locations.append(str(link / "Synths"))
+        r, result = self.run_device(None, internal=[str(self.fs / "nvme"), str(link)])
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("the same folder as another candidate", result)
+
+    def test_only_a_lasting_synths_folder_qualifies(self):
+        self.mounts, self.locations = [], []
+        ram = self.candidate("ram", mount="rw,relatime")
+        self.mounts[-1] = "tmpfs %s tmpfs rw,relatime 0 0\n" % (self.fs / "ram")
+        expansions = self.fs / "ex" / "Expansions"
+        expansions.mkdir(parents=True)
+        self.locations.append(str(expansions))
+        r, result = self.run_device([ram, str(expansions)])
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("not kept across restarts", result)
+        self.assertIn("is not a Synths folder", result)
+        self.assertFalse(self.log.exists())
+
     def test_two_candidates_are_not_chosen_between(self):
         self.mounts, self.locations = [], []
         a, b = self.candidate("nvme"), self.candidate("storage")
@@ -235,7 +273,8 @@ class Device(Tmp):
         self.assertEqual(r.returncode, 0, result)
         self.assertIn("ARGS: -y -t %s" % good, self.log.read_text())
         self.assertIn("is not a plugin location MPC lists", result)
-        self.assertIn("read-write mount that allows executables", result)
+        self.assertIn("is read-only", result)
+        self.assertIn("does not allow executables", result)
 
     def test_the_packages_installer_failing_is_reported_with_its_status(self):
         self.mounts, self.locations = [], []
