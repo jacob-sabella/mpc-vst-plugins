@@ -231,6 +231,11 @@ def gen_params(cfg, params, out, shown=None):
     live = [i for i, q in enumerate(params) if q.get("live")]
     if live:
         lines += ["static const int PLUG_LIVE[] = {%s};" % ", ".join(str(i) for i in live), "#define PLUG_LIVE_COUNT %d" % len(live)]
+    # "legacy": true on a param -- kept in the table only so saved projects and automation keep their indices, and not on any
+    # screen. host_test never picks these as the representative knob, option list or whole number of its checks.
+    legacy = [i for i, q in enumerate(params) if q.get("legacy")]
+    if legacy:
+        lines += ["static const int PLUG_LEGACY[] = {%s};" % ", ".join(str(i) for i in legacy), "#define PLUG_LEGACY_COUNT %d" % len(legacy)]
     if cfg.get("effect"):
         lines.append("#define PLUG_EFFECT 1")
     lines += program_lines(cfg, params, key_to_index)
