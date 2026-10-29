@@ -134,10 +134,12 @@ class Device(Tmp):
         self.fs.mkdir()
         self.log = self.p / "stub.log"
 
-    def candidate(self, name, exists=True, mount="rw,relatime", registered=True):
+    def candidate(self, name, exists=True, mount="rw,relatime", registered=True, parent=False):
         folder = self.fs / name / "Synths"
         if exists:
             folder.mkdir(parents=True)
+        elif parent:
+            folder.parent.mkdir(parents=True)
         self.mounts.append("/dev/fake %s ext4 %s 0 0\n" % (self.fs / name, mount))
         if registered:
             self.locations.append(str(folder))
@@ -195,6 +197,24 @@ class Device(Tmp):
         self.assertEqual(r.returncode, 1)
         self.assertIn("no internal Synths folder qualifies", result)
         self.assertIn("does not exist", result)
+        self.assertFalse(self.log.exists())
+
+    def test_a_listed_folder_that_is_not_there_yet_is_created_by_the_package(self):
+        # a fresh Gen1 unit: MPC lists /sdcard/Synths but nothing ever made it (a tester's Gen1 stick found "does not exist" everywhere)
+        self.mounts, self.locations = [], []
+        fresh = self.candidate("sdcard", exists=False, parent=True)
+        r, result = self.run_device([fresh])
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("ARGS: -y -t %s" % fresh, self.log.read_text())
+        self.assertIn("it will be created", result)
+
+    def test_a_missing_folder_that_is_not_listed_is_still_refused_and_the_log_says_what_the_device_has(self):
+        self.mounts, self.locations = [], []
+        fresh = self.candidate("sdcard", exists=False, parent=True, registered=False)
+        r, result = self.run_device([fresh])
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("is not a plugin location MPC lists", result)
+        self.assertIn("what this device has", result)
         self.assertFalse(self.log.exists())
 
     def test_two_candidates_are_not_chosen_between(self):
