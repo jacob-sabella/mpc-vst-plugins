@@ -224,10 +224,15 @@ class Device(Tmp):
     def test_a_missing_folder_that_is_not_listed_is_still_refused_and_the_log_says_what_the_device_has(self):
         self.mounts, self.locations = [], []
         fresh = self.candidate("sdcard", exists=False, parent=True, registered=False)
-        r, result = self.run_device([fresh])
+        os.environ["MPC_G2_DIAG_MOUNTS"] = "%s/[a-z]*" % self.fs   # fake mount points are not under /sdcard, /nvme ...
+        try:
+            r, result = self.run_device([fresh])
+        finally:
+            os.environ.pop("MPC_G2_DIAG_MOUNTS")
         self.assertEqual(r.returncode, 1)
         self.assertIn("is not a plugin location MPC lists", result)
         self.assertIn("what this device has", result)
+        self.assertRegex(result, r"/dev/fake \S+ ext4 rw,relatime free=\d+KB id=\d+:\d+")   # device, free space and folder id of each mount
         self.assertFalse(self.log.exists())
 
     def test_candidates_come_from_the_settings_and_only_internal_ones_count(self):

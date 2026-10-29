@@ -118,7 +118,10 @@ if [ "$n" -lt 1 ]; then
     echo "--- what this device has (for support) ---"
     echo "plugin locations MPC lists:"; grep -o "<Location>[^<]*</Location>" "$settings" 2>/dev/null | sed 's/<[^>]*>//g; s/^/  /' || true
     echo "MPC.settings: $settings"
-    echo "mounts that look like internal storage:"; grep -E " /(sdcard|nvme|storage|data|synths|media[^ ]*|content) " "$mounts" 2>/dev/null | cut -d' ' -f2-4 | sed 's/^/  /' || true
+    echo "mounts that look like internal storage (device, mount point, type, options, free space, folder id):"
+    grep -E " ${MPC_G2_DIAG_MOUNTS:-/(sdcard|nvme|storage|data|synths|media[^ ]*|content)} " "$mounts" 2>/dev/null | while read -r dev mp ty opts rest; do
+        p=$(printf '%b' "$mp"); echo "  $dev $mp $ty $(printf %s "$opts" | cut -d, -f1-3) free=$(free_kb "$p")KB id=$(stat -L -c '%d:%i' "$p" 2>/dev/null)"
+    done || true
     echo "folders: $(ls -d /sdcard/Synths /nvme/Synths /storage/Synths /media/*/Synths 2>/dev/null | tr '\n' ' ')"
     echo "--- end ---"
 fi
