@@ -58,11 +58,23 @@ registered() { grep -qF "<Location>$1</Location>" "$settings" || grep -qF "<Loca
 found=""; n=0
 for c in ${MPC_G2_CANDIDATES:-/sdcard/Synths /nvme/Synths /storage/Synths}; do
     why=""
-    [ -d "$c" ] || why="does not exist"
+    # a listed folder that is not there yet qualifies when its parent is: the package's installer creates it (mkdir -p), so a
+    # fresh unit that lists /sdcard/Synths but never made it is not refused
+    [ -d "$c" ] || [ -d "$(dirname "$c")" ] || why="does not exist, and neither does its parent folder"
+    [ -n "$why" ] || [ -d "$c" ] || registered "$c" || why="does not exist and is not a plugin location MPC lists"
     [ -n "$why" ] || mount_ok "$c" || why="is not on a read-write mount that allows executables"
     [ -n "$why" ] || registered "$c" || why="is not a plugin location MPC lists"
-    if [ -z "$why" ]; then found="$c"; n=$((n + 1)); echo "Candidate: $c (qualifies)"; else echo "Candidate: $c $why"; fi
+    if [ -z "$why" ]; then found="$c"; n=$((n + 1)); [ -d "$c" ] && echo "Candidate: $c (qualifies)" || echo "Candidate: $c (qualifies; MPC lists it and it will be created)"; else echo "Candidate: $c $why"; fi
 done
+if [ "$n" -lt 1 ]; then
+    # what a person helping needs to see, since nothing was found
+    echo "--- what this device has (for support) ---"
+    echo "plugin locations MPC lists:"; grep -o "<Location>[^<]*</Location>" "$settings" 2>/dev/null | sed 's/<[^>]*>//g; s/^/  /' || true
+    echo "MPC.settings: $settings"
+    echo "mounts that look like internal storage:"; grep -E " /(sdcard|nvme|storage|data|media[^ ]*|content) " "$mounts" 2>/dev/null | cut -d' ' -f2-4 | sed 's/^/  /' || true
+    echo "folders: $(ls -d /sdcard/Synths /nvme/Synths /storage/Synths /media/*/Synths 2>/dev/null | tr '\n' ' ')"
+    echo "--- end ---"
+fi
 [ "$n" -ge 1 ] || fail "no internal Synths folder qualifies on this device"
 [ "$n" -eq 1 ] || fail "more than one Synths folder qualifies; not choosing between them"
 target=$found
