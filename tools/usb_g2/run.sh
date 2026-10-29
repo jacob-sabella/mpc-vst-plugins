@@ -4,9 +4,10 @@
 #
 #  - The package for this CPU is chosen by `uname -m` (Gen1 and Force: armv7, Gen2: aarch64) and checked against payload.sha256,
 #    which is one of the files the stock USB-script check covers, so a swapped package on the stick is refused.
-#  - The Synths folder is chosen only when exactly one candidate qualifies: it exists, sits on a read-write mount that is not
-#    noexec (a plugin .so must be loadable from it), and MPC already lists it as a plugin location. Otherwise nothing is
-#    installed and the result file says what was found. Nothing is guessed.
+#  - The Synths folder comes from the device, the same rule the OpenMPC Plugin Manager G2 uses: the internal folders MPC lists in
+#    MPC.settings (SynthContentLocations) that are Synths folders on a read-write, executable, lasting mount with room (a listed folder
+#    that is not there yet counts if its parent is). Two paths to one folder count once. It is chosen only when exactly one qualifies;
+#    otherwise nothing is installed and the result file says what was found, and what the device has. Nothing is guessed.
 #  - Needs no network. Leaves <stick>/g2-install-result.txt. With MPC_G2_DRY_RUN=1 it only reports what it would do.
 usb=$1; work=$2
 log="$work/result.txt"
@@ -47,25 +48,53 @@ echo "Package: $rel (checksum ok)"
 settings="${MPC_SETTINGS:-$(ls /media/az01-internal/Settings/*/MPC.settings /data/Settings/*/MPC.settings 2>/dev/null | head -n 1)}"
 [ -f "$settings" ] || fail "cannot find MPC.settings on this device"
 
-# the Synths folder: exactly one candidate that exists, is on a rw non-noexec mount, and is a location MPC already lists
+# the Synths folder: exactly one candidate, taken from the device. MPC lists its plugin folders in MPC.settings (SynthContentLocations);
+# the internal ones (a One: /media/az01-internal/Synths, a Force: /sdcard/Synths, Gen2: /nvme or /storage) are candidates, the same rule
+# the OpenMPC Plugin Manager G2 itself uses. A candidate must be a Synths folder on a read-write, executable, lasting mount with room,
+# and a listed folder that does not exist yet is fine when its parent does (the package's installer creates it). Two paths to the same
+# folder count once. Removable cards and USB drives are never chosen: a plugin on one disappears with it.
 mounts="${MPC_MOUNTS:-/proc/mounts}"
-mount_ok() {   # the mount holding $1 is read-write and not noexec
+mount_ok() {   # the mount holding $1 is read-write, allows executables and keeps its files; sets mount_why when not
     awk -v d="$1" '
-        { mp=$2; if (mp=="/" || d==mp || index(d, mp "/")==1) { if (length(mp)>best) { best=length(mp); opts="," $4 "," } } }
-        END { if (best && opts ~ /,rw,/ && opts !~ /,noexec,/) exit 0; exit 1 }' "$mounts"
+        { mp=$2; if (mp=="/" || d==mp || index(d, mp "/")==1) { if (length(mp)>best) { best=length(mp); opts="," $4 "," ; ty=$3 ; m=mp } } }
+        END {
+            if (!best) { print "is not on a mounted filesystem"; exit 1 }
+            if (opts !~ /,rw,/) { print m " is read-only"; exit 1 }
+            if (opts ~ /,noexec,/) { print m " does not allow executables (noexec)"; exit 1 }
+            if (ty ~ /^(tmpfs|ramfs|devtmpfs|squashfs|erofs|iso9660|cramfs)$/) { print m " is " ty ", which is not kept across restarts"; exit 1 }
+            exit 0 }' "$mounts"
 }
 registered() { grep -qF "<Location>$1</Location>" "$settings" || grep -qF "<Location>$1/</Location>" "$settings"; }
-found=""; n=0
-for c in ${MPC_G2_CANDIDATES:-/sdcard/Synths /nvme/Synths /storage/Synths}; do
-    why=""
-    # a listed folder that is not there yet qualifies when its parent is: the package's installer creates it (mkdir -p), so a
-    # fresh unit that lists /sdcard/Synths but never made it is not refused
-    [ -d "$c" ] || [ -d "$(dirname "$c")" ] || why="does not exist, and neither does its parent folder"
-    [ -n "$why" ] || [ -d "$c" ] || registered "$c" || why="does not exist and is not a plugin location MPC lists"
-    [ -n "$why" ] || mount_ok "$c" || why="is not on a read-write mount that allows executables"
-    [ -n "$why" ] || registered "$c" || why="is not a plugin location MPC lists"
+internal() { for pre in ${MPC_G2_INTERNAL:-/media/az01-internal /sdcard /nvme /storage}; do case "$1" in "$pre"/*) return 0 ;; esac; done; return 1; }
+if [ -n "${MPC_G2_CANDIDATES:-}" ]; then list=$(printf '%s\n' $MPC_G2_CANDIDATES)
+else list=$(grep -o '<Location>[^<]*</Location>' "$settings" | sed 's/<[^>]*>//g' | while read -r l; do l=${l%/}; internal "$l" && echo "$l"; done)
+fi
+found=""; n=0; seen=" "
+while read -r c; do
+    [ -n "$c" ] || continue
+    why=""; parent=$(dirname "$c"); at=$c
+    case "$c" in */Synths) ;; *) why="is not a Synths folder" ;; esac
+    [ -n "$why" ] || case "$c" in /usr/*) why="is factory content" ;; esac
+    [ -n "$why" ] || case "$c" in *[!A-Za-z0-9._/-]*) why="has characters the installer does not accept" ;; esac
+    if [ -z "$why" ]; then
+        if [ -d "$c" ]; then at=$c; elif [ -d "$parent" ]; then at=$parent; else why="does not exist, and neither does its parent folder"; fi
+    fi
+    [ -n "$why" ] || registered "$c" || why="is not a plugin location MPC lists"   # a skin is drawn only from a listed location
+    [ -n "$why" ] || { r=$(mount_ok "$at") || why=$r; }
+    if [ -z "$why" ]; then
+        free=$(df -k "$at" 2>/dev/null | awk 'NR==2 {print $4}')
+        [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free"
+    fi
+    if [ -z "$why" ]; then
+        key=$(stat -L -c '%d:%i' "$at" 2>/dev/null)
+        [ -d "$c" ] || key="$key/Synths"
+        case "$seen" in *" $key "*) echo "Candidate: $c (the same folder as another candidate)"; continue ;; esac
+        seen="$seen$key "
+    fi
     if [ -z "$why" ]; then found="$c"; n=$((n + 1)); [ -d "$c" ] && echo "Candidate: $c (qualifies)" || echo "Candidate: $c (qualifies; MPC lists it and it will be created)"; else echo "Candidate: $c $why"; fi
-done
+done <<EOF
+$list
+EOF
 if [ "$n" -lt 1 ]; then
     # what a person helping needs to see, since nothing was found
     echo "--- what this device has (for support) ---"
