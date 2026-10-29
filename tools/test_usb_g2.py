@@ -133,6 +133,7 @@ class Device(Tmp):
         self.fs = self.p / "fs"
         self.fs.mkdir()
         self.log = self.p / "stub.log"
+        self.sysfs = None
 
     def candidate(self, name, exists=True, mount="rw,relatime", registered=True, parent=False):
         folder = self.fs / name / "Synths"
@@ -169,6 +170,8 @@ class Device(Tmp):
                    STUB_LOG=str(self.log), STUB_RC=str(rc), PATH=str(self.p / "bin") + os.pathsep + os.environ["PATH"])
         if candidates is not None:
             env["MPC_G2_CANDIDATES"] = " ".join(candidates)
+        if self.sysfs is not None:
+            env["MPC_G2_SYSFS"] = str(self.sysfs)
         if internal:
             env["MPC_G2_INTERNAL"] = " ".join(internal)
         if drives is not None:
@@ -400,6 +403,49 @@ class Device(Tmp):
         self.assertEqual(r.returncode, 1)
         self.assertIn("/az01-internal is not there", result)
         self.assertFalse(self.log.exists())
+
+    def test_the_report_scans_every_drive_without_model_names(self):
+        # r7 shadow scan: nothing chosen by it, but each partition gets a verdict: internal and usable, USB, system folder, noexec, duplicate
+        self.mounts, self.locations = [], []
+        self.sysfs = self.p / "sys" / "class" / "block"
+        self.sysfs.mkdir(parents=True)
+        def dev(name, bus):
+            target = self.p / "sysdev" / bus / name
+            target.mkdir(parents=True)
+            (self.sysfs / name).symlink_to(target)
+        dev("mmcblk0p8", "platform/mmc0")
+        dev("mmcblk0p7", "platform/mmc0")
+        dev("sdc1", "platform/usb7/7-1")
+        data, data2, ssd = self.fs / "data", self.fs / "data2", self.fs / "ssd"
+        for d in (data, data2, ssd):
+            d.mkdir()
+        self.mounts += ["/dev/mmcblk0p8 %s ext4 rw,relatime 0 0\n" % data,
+                        "/dev/mmcblk0p8 %s ext4 rw,relatime 0 0\n" % data2,
+                        "/dev/mmcblk0p7 /factory ext4 rw,relatime 0 0\n",
+                        "/dev/sdc1 %s exfat rw,nosuid,nodev,noexec 0 0\n" % ssd]
+        r, result = self.run_device([], drives=[])
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("drive scan", result)
+        self.assertRegex(result, r"%s \(mmcblk0p8, ext4, \d+ KB free\) would qualify" % data)
+        self.assertNotIn(str(data2), result)   # the same partition twice is listed once
+        self.assertRegex(result, r"/factory \(mmcblk0p7, ext4, [^)]*\) is a system folder")
+        self.assertRegex(result, r"%s \(sdc1, exfat, \d+ KB free\) is on a USB bus" % ssd)
+        self.assertFalse(self.log.exists())   # the scan chooses nothing
+
+    def test_the_scan_knows_a_one_or_key_whose_internal_drive_is_a_loop_image(self):
+        # an MPC One / Key 37: /storage is an exFAT image on /data through /dev/loop0; its SD card is a USB-attached drive
+        self.mounts, self.locations = [], []
+        self.sysfs = self.p / "sys" / "class" / "block"
+        (self.sysfs / "loop0" / "loop").mkdir(parents=True)
+        (self.sysfs / "loop0" / "loop" / "backing_file").write_text("/data/user-storage-image\n")
+        (self.sysfs / "loop1" / "loop").mkdir(parents=True)
+        (self.sysfs / "loop1" / "loop" / "backing_file").write_text("/media/SOMECARD/disk.img\n")
+        storage, other = self.fs / "storage", self.fs / "other"
+        storage.mkdir(); other.mkdir()
+        self.mounts += ["/dev/loop0 %s exfat rw,relatime 0 0\n" % storage, "/dev/loop1 %s exfat rw,relatime 0 0\n" % other]
+        r, result = self.run_device([], drives=[])
+        self.assertRegex(result, r"%s \(loop0, exfat, \d+ KB free\) would qualify" % storage)
+        self.assertRegex(result, r"%s \(loop1, exfat, \d+ KB free\) is a loop device not backed by an internal file" % other)
 
     def test_two_candidates_are_not_chosen_between(self):
         self.mounts, self.locations = [], []
