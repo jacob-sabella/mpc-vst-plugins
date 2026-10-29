@@ -238,6 +238,11 @@ Looks and images (SKIN_STUDIO "Looks and images", `tools/skin_assets.py`): `look
 image per option), experimental `meter`. All need `"art": "html"`. Never commit Akai's stock skin art here.
 Always `preview` before deploying. Enum `options=` are optional in layouts (they default to the parameter's own).
 
+Several interfaces in one plugin: `when=` cannot switch tabs and a skin binds at insert, so variants with different
+navigation are separate folders — `tools/make_skinset.py` merges built skins into `Plugin Skins/<name>/` with
+`ui.txt` as the active choice. Engine contract (`ui` parameter, `MODULE_SUBDIR`), UX rules and measurements:
+docs/SKIN_VARIANTS.md.
+
 ## CPU check and release
 - `tools/bench.sh build/x.so <ip> -j`: plays the plugin on the device (idle, chords, Q-Link sweep, release tail),
   thread-CPU timed, verdict PASS/WARN/FAIL against the 2902 µs block (docs/BENCH.md). Nothing installed; MPC keeps running.

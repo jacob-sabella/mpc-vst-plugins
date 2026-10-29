@@ -2,8 +2,8 @@
 
 Some plugins are worth more than one interface: a compact one for a Live II screen, a hardware-style one
 for people who map the panel to a controller, a plain one for people who only need three knobs. This page is
-what we learned shipping three interfaces inside one plugin, on two ports (MPC DJ FX 2 3.1.0, MPC Tape Echo
-1.2.0), verified on an MPC Live II running MPC OS 3.x.
+what we learned shipping three interfaces inside one plugin, on two ports (MPC DJ FX 2 3.1.0/3.1.1, MPC Tape Echo
+1.2.0), verified on an MPC Live II running MPC OS 3.9.1.2 on 2026-10-28.
 
 ## What the device does, and what it does not
 
@@ -13,9 +13,11 @@ call to re-render itself. Consequences:
 
 - Any skin change costs the user a *remove instance → insert instance*. Design for that: the switch stages the
   next insert, the running instance stays as it is.
-- Swapping files under a live instance is safe **as long as no image is rewritten** — the instance has already
-  loaded the textures it uses. Replacing `TUI.json` (which it has already parsed) is safe; replacing a filmstrip
-  it still samples is not.
+- Rewriting a file under a live instance is only safe **for what it has already parsed**, and even that is an
+  observation, not a documented guarantee. MPC loads `TUI.json` and the Q-Link banks at insert and keeps them in
+  memory, so replacing those two was safe in our tests (MPC Live II, MPC OS 3.9.1.2, 2026-10-28: the instance kept
+  running and the next insert picked up the new files). The SDK promises nothing of the sort — a future OS may
+  re-read or lock these files. A filmstrip or background PNG the instance still samples is not safe to replace.
 
 **`when=<param>:<option>` works — for widgets.** A layout line carrying `when=mode:H3` becomes an
 `additionalInvalidatingHandles: ["IndexedEnabling/0/<n>/Parameter <p>"]` on the component, and MPC hides and
@@ -83,7 +85,8 @@ Four details that are not optional:
    or preset loads with an older value, ignore it and re-read the file — otherwise loading a preset silently
    rewrites another interface for everyone.
 2. **`.tmp` + `rename()`.** MPC may read `TUI.json` at any moment after the user removes the instance.
-3. **No image in the switch.** Only the two small JSON files; see the safety note above.
+3. **No image in the switch.** Only the two small JSON files, and only because MPC has already parsed them — the
+   note above says how far that carries.
 4. **`MODULE_SUBDIR`.** An engine only learns its own folder if `vst.json` sets
    `"defines": {"MODULE_SUBDIR": "\".\""}`; without it `create()` receives an empty `dir` and the copy
    silently does nothing — a switch that looks alive. Treat an empty `dir` as "unknown", not as a path.

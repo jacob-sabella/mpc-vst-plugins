@@ -21,7 +21,9 @@ Usage:
         studio=<built skin dir> classic=<built skin dir> rack=<built skin dir> [--active studio]
 
 Every argument after -o is `name=directory`. The directory is a built skin folder (the one holding
-TUI.json right after `gen_vst.py`), not the `Plugin Skins` parent.
+TUI.json right after `gen_vst.py`), not the `Plugin Skins` parent. `name` becomes the subfolder, so it must
+be one plain folder name (no separators, not `.` or `..`) and unique: the tool removes and rewrites exactly
+that path on every run.
 """
 import argparse
 import json
@@ -30,6 +32,14 @@ import shutil
 import sys
 
 ASSET_EXT = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def check_name(name):
+    """A name becomes the subfolder under -o, and a rebuild rmtree()s exactly that path. Accept only one plain
+    path component: empty, '.', '..', an absolute path or anything with a separator would reach outside it."""
+    if not name or name in (".", "..") or os.path.isabs(name) or "/" in name or "\\" in name or "\0" in name:
+        sys.exit("make_skinset: %r is not an interface name: one plain folder name, no path, no separators" % name)
+    return name
 
 
 def rewrite_paths(node, names, prefix):
@@ -74,8 +84,11 @@ def main():
         if "=" not in spec:
             sys.exit("make_skinset: expected NAME=DIR, got %r" % spec)
         name, src = spec.split("=", 1)
-        variants.append(load_variant(name, src))
+        variants.append(load_variant(check_name(name), src))
     names = [v["name"] for v in variants]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        sys.exit("make_skinset: duplicate interface name(s): %s" % ", ".join(dupes))
     active = a.active or names[0]
     if active not in names:
         sys.exit("make_skinset: --active %r is not one of %s" % (active, ", ".join(names)))

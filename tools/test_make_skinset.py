@@ -50,16 +50,19 @@ class Skinset(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def run_tool(self, active=None, order=("studio", "classic", "rack")):
+    def run_specs(self, specs, active=None):
         argv = ["make_skinset.py", "-o", self.out]
         if active:
             argv += ["--active", active]
-        argv += ["%s=%s" % (n, os.path.join(self.tmp, n)) for n in order]
+        argv += specs
         old, sys.argv = sys.argv, argv
         try:
             make_skinset.main()
         finally:
             sys.argv = old
+
+    def run_tool(self, active=None, order=("studio", "classic", "rack")):
+        self.run_specs(["%s=%s" % (n, os.path.join(self.tmp, n)) for n in order], active)
         return json.load(open(os.path.join(self.out, "TUI.json")))
 
     def test_each_interface_gets_its_own_subfolder_with_its_files(self):
@@ -111,6 +114,23 @@ class Skinset(unittest.TestCase):
         os.remove(os.path.join(self.tmp, "rack", "TUI.json"))
         with self.assertRaises(SystemExit):
             self.run_tool()
+
+    def test_a_name_that_is_not_one_plain_folder_is_refused(self):
+        # The name becomes the subfolder and is rmtree()d on every rebuild: a name like '..' or '../x' would
+        # delete outside the skin folder. Refused before anything is created or removed.
+        sentinel = os.path.join(self.tmp, "keep.txt")
+        open(sentinel, "w").write("x")
+        src = os.path.join(self.tmp, "studio")
+        for bad in ("", ".", "..", "../evil", "studio/../rack", "/tmp/evil", "a\\b", "x\0y"):
+            with self.assertRaises(SystemExit, msg=bad):
+                self.run_specs(["%s=%s" % (bad, src)])
+        self.assertTrue(os.path.isfile(sentinel))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "out")))
+
+    def test_duplicate_names_are_refused(self):
+        with self.assertRaises(SystemExit):
+            self.run_specs(["studio=%s" % os.path.join(self.tmp, "studio"),
+                            "studio=%s" % os.path.join(self.tmp, "classic")])
 
 
 if __name__ == "__main__":
