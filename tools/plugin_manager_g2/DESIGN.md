@@ -1,4 +1,4 @@
-# OpenMPC Plugin Manager G2: design
+# OpenMPC Plugin Manager VST: design
 
 Status 2026-10-27. Evidence tags: **device** = seen on hardware (Live III, MPC 3.10.0.49, unless stated), **offline** = read
 from source or images, **inference** = my reasoning, not checked. Facts about this repo's own code were read from

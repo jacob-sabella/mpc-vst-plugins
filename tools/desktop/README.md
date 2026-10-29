@@ -23,7 +23,7 @@ the MPC OS first (the stock USB prompt exists only up to 3.9.1; 3.10 and "not su
 checks that the bundle's boot files are present, that `payload.sha256` lists exactly one armv7 and one aarch64 package, and that
 each package matches its checksum; it then unpacks onto an empty drive like the easy stick. The installer downloads the bundle named in
 `tools/desktop/g2stick-pin.json` (read from `main` at run time, so a new G2 release is a one-file change; the url must be under this repo's
-releases and the sha256 is checked), and a local bundle file can still be chosen. Each G2 release needs a new bundle, built with
+releases and the sha256 is checked), and a local bundle file can still be chosen. Each plugin manager release needs a new bundle, built with
 `tools/usb_g2/build_stick.py` from the user's own firmware (only the derived `autorun.check` goes in).
 
 A password SSH stick can't work on a Gen2 (read-only root, found on a Live III 2026-10-29): the page says "Gen2 needs a key", and when the scanned firmware looks Gen2 (its name says Gen2, or it is an aarch64 executable) `stickBuild` refuses a password and the page blocks it.

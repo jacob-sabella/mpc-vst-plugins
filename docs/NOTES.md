@@ -1966,3 +1966,8 @@ Reading Eurikon's helper `bootstrap.sh` (v1.2.2, offline, 2026-10-29): on 3.10 i
 ## 2026-10-29: why the manager opened on insertion on stock 3.10 (device + his README)
 
 The stock 3.10 Live III opened the manager when the stick was inserted, and the user thought the helper import was no longer needed. It is still needed: the helper from the earlier 3.10-overlay tests was still in `/nvme/MPC Documents/Devices/Plugin Manager helper` (read over SSH 2026-10-29 after the downgrade; files dated 2026-10-28), and that folder is shared by the overlay and stock 3.10. Eurikon's README says that once the helper is installed, a fresh insertion on 3.10 offers Open or Cancel, with Shift + Menu for a stick already inserted at boot. A clean test (delete the helper, restart, insert the stick) would show the stick alone does nothing, as expected.
+
+## 2026-10-30: the plugin manager is renamed in wording: OpenMPC Plugin Manager VST (offline, wording only)
+
+"G2" made people think the plugin was Gen2-only; it runs on Gen1, Force and Gen2. Wording in the installer, the stick's prompt and result text, the docs and the README now says **OpenMPC Plugin Manager VST**. Older entries in this file keep the old name because they record what was verified then. Not renamed yet, because each needs a plugin release or another repo: the plugin's own name on the device and its skin (`vst.json`, `params.json`, `make_images.py`), the install folder `OpenMPC - VST - Plugin Manager G2`, the release tags and zip names (`plugin-manager-g2-v*`, `Plugin-Manager-G2-*.zip`), the catalog id and entry, the workflow names, and the welcome-screen button in the community manager fork (the upstream PR #10 merged it as "OpenMPC Plugin Manager G2").
+

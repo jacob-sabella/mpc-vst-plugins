@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the "Level 1" USB stick: confirm the stock prompt and it installs the OpenMPC Plugin Manager G2 and restarts MPC, with no
+"""Write the "Level 1" USB stick: confirm the stock prompt and it installs the OpenMPC Plugin Manager VST and restarts MPC, with no
 SSH, no network and no plugin-manager UI to learn. Both generations' packages ride on the stick; the device picks its own.
 
   python3 tools/usb_g2/build_stick.py --firmware <update.img | MPC executable> --out <folder> (--g2-dir <folder with the two zips> | --download)
@@ -30,7 +30,7 @@ import saltscan  # noqa: E402
 PLUGIN_ID = "plugin-manager-g2"
 ARCHES = ("armv7", "aarch64")
 CATALOG_JSON = "https://sd88me.github.io/mpc-vst-plugins/catalog.json"
-PROMPT = ("OPENMPC PLUGIN MANAGER G2\n\nThis installs the OpenMPC Plugin Manager G2 and restarts MPC. "
+PROMPT = ("OPENMPC PLUGIN MANAGER VST\n\nThis installs the OpenMPC Plugin Manager VST and restarts MPC. "
           "It needs no network.\n\nHave you saved your project?")
 MARKER = ".mpc-g2-stick"
 
@@ -98,7 +98,7 @@ def build(out, salt, zips, version):
     (autorun / "autorun.check").write_bytes(make_stick.autorun_check(autorun, files, salt))
     (out / MARKER).write_text("mpc-usb-g2-v1\nversion=%s\n" % version)
     (out / "README-USB.txt").write_text(
-        "OpenMPC Plugin Manager G2 stick (version %s).\n\n"
+        "OpenMPC Plugin Manager VST stick (version %s).\n\n"
         "Copy everything in this folder (hidden files too) to the root of an empty USB stick, insert it into the MPC or Force and\n"
         "confirm the prompt. The plugin manager is installed in the device's own plugin folder and MPC restarts once. Save your project\n"
         "first. It works with MPC OS 3.9.1 and older; MPC OS 3.10 has no USB prompt (use the plugin manager stick there).\n"
@@ -183,7 +183,7 @@ def main(argv=None):
     except (ValueError, FileExistsError, OSError) as e:
         print("error: %s" % e, file=sys.stderr)
         return 1
-    print("Wrote %s (G2 %s; salt found %dx in %s). Copy its contents, hidden files included, to the stick's root." % (a.out, version, len(hits), a.firmware))
+    print("Wrote %s (plugin manager %s; salt found %dx in %s). Copy its contents, hidden files included, to the stick's root." % (a.out, version, len(hits), a.firmware))
     if a.zip:
         write_zip(a.out, a.zip)
         print("Zip: %s sha256 %s" % (a.zip, sha256_of(a.zip)))

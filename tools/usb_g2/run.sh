@@ -1,10 +1,10 @@
 #!/bin/sh
-# usb_g2/run.sh <stick> <work>: installs the OpenMPC Plugin Manager G2 package that is bundled on the stick, then MPC is restarted
+# usb_g2/run.sh <stick> <work>: installs the OpenMPC Plugin Manager VST package that is bundled on the stick, then MPC is restarted
 # (by the package's own install.sh, which backs up MPC.settings, registers the plugin, and starts MPC again even if it fails).
 #
 #  - The package for this CPU is chosen by `uname -m` (Gen1 and Force: armv7, Gen2: aarch64) and checked against payload.sha256,
 #    which is one of the files the stock USB-script check covers, so a swapped package on the stick is refused.
-#  - The Synths folder comes from the device, the same rule the OpenMPC Plugin Manager G2 uses: the internal folders MPC lists in
+#  - The Synths folder comes from the device, the same rule the OpenMPC Plugin Manager VST uses: the internal folders MPC lists in
 #    MPC.settings (SynthContentLocations) that are Synths folders on a read-write, executable, lasting mount with room (a listed folder
 #    that is not there yet counts if its parent is). Two paths to one folder count once. It is chosen only when exactly one qualifies;
 #    otherwise nothing is installed and the result file says what was found, and what the device has. Nothing is guessed.
@@ -29,7 +29,7 @@ finish() {
 }
 trap finish EXIT
 exec > "$log" 2>&1
-echo "OpenMPC Plugin Manager G2 install: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "OpenMPC Plugin Manager VST install: $(date '+%Y-%m-%d %H:%M:%S')"
 if [ -z "${MPC_USB_TEST:-}" ]; then [ "$(id -u)" = 0 ] || { echo "error: not root"; exit 1; }; fi
 fail() { echo "error: $*"; echo "Nothing was installed."; exit 1; }
 
@@ -60,7 +60,7 @@ settings="${MPC_SETTINGS:-$(ls /media/az01-internal/Settings/*/MPC.settings /dat
 
 # the Synths folder: exactly one candidate, taken from the device. MPC lists its plugin folders in MPC.settings (SynthContentLocations);
 # the internal ones (a One: /media/az01-internal/Synths, a Force: /sdcard/Synths, Gen2: /nvme or /storage) are candidates, the same rule
-# the OpenMPC Plugin Manager G2 itself uses. A candidate must be a Synths folder on a read-write, executable, lasting mount with room,
+# the OpenMPC Plugin Manager VST itself uses. A candidate must be a Synths folder on a read-write, executable, lasting mount with room,
 # and a listed folder that does not exist yet is fine when its parent does (the package's installer creates it). Two paths to the same
 # folder count once. Removable cards and USB drives are never chosen: a plugin on one disappears with it.
 mounts="${MPC_MOUNTS:-/proc/mounts}"
@@ -192,5 +192,5 @@ fi
 echo "Running the package's installer$( [ "$register" = 1 ] || echo " (it restarts MPC)")"
 if [ "$register" = 1 ]; then (cd "$pkgdir" && sh ./install.sh -y -n -t "$target"); else (cd "$pkgdir" && sh ./install.sh -y -t "$target"); fi
 rc=$?
-if [ "$rc" -eq 0 ]; then echo "Done. OpenMPC Plugin Manager G2 is installed in $target."; else echo "The package's installer failed (status $rc); MPC was started again."; fi
+if [ "$rc" -eq 0 ]; then echo "Done. OpenMPC Plugin Manager VST is installed in $target."; else echo "The package's installer failed (status $rc); MPC was started again."; fi
 exit "$rc"
