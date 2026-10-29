@@ -5,7 +5,7 @@ card's tile size (with a dark chip in the corner for the live INST/FX/ADDIN text
 detail view. Then writes the r<N>_shot and d_shot option parameters into params.json, a thumbnail button per id on
 each card and the detail picture's file list into layout.conf, and src/shots.h (the ids, in option order) for the
 engine. A plugin without a screenshot, or added to the catalog after this ran, keeps its initials.
-Run it before a release:  python3 vst/shots.py  (MPC_VST: the mpc-vst-plugins checkout; needs Pillow)."""
+Run it before a release:  python3 vst/shots.py [--gen2]  (default: every catalog screenshot, one skin for Gen1 and Gen2; --gen2: only the plugins with an aarch64 zip, a much lighter skin)  (MPC_VST: the mpc-vst-plugins checkout; needs Pillow)."""
 import glob
 import io
 import json
@@ -50,10 +50,27 @@ def prune(folder, ids):
             os.remove(os.path.join(folder, f))
 
 
+def gen2_ids():
+    """Catalog ids whose newest version has an aarch64 zip (the live catalog.json): the only ones a Gen2 MPC can install. Every thumbnail is
+    one button per id per row (5 x 159 components made the Live III draw black patches in the header, 2026-10-28), so a lean Gen2 skin (--gen2) bakes only these."""
+    url = os.environ.get("CATALOG_URL", "https://sd88me.github.io/mpc-vst-plugins/catalog.json")
+    cat = json.load(io.BytesIO(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "openmpc-pm shots.py"}), timeout=60).read()))
+    out = set()
+    for p in cat["plugins"]:
+        v = (p.get("versions") or [{}])[0]
+        if "aarch64" in (v.get("assets") or {}):
+            out.add(p["id"])
+    return out
+
+
 def main():
     entries = sorted(glob.glob(os.path.join(MPC_VST, "catalog", "plugins", "*.json")))
     if not entries:
         sys.exit("no catalog entries under %s (set MPC_VST)" % MPC_VST)
+    if "--gen2" in sys.argv:   # the lean set: only plugins with an aarch64 zip (default: every catalog screenshot, one skin for Gen1 and Gen2)
+        keep = gen2_ids()
+        entries = [p for p in entries if os.path.basename(p)[:-5] in keep]
+        print("Gen2 only: %d catalog ids have an aarch64 zip" % len(entries))
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(OUT_BIG, exist_ok=True)
     ids = []

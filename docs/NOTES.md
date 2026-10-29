@@ -1904,6 +1904,17 @@ new one (trigger max 70 %); at 2.8 ms (over `TRIGGER_WARN_PCT`) it WARNs. `bench
   ("this build is for Gen1 ...", read from the apply log).
 - **Offline only (x86 container, fake devices):** the rollback of a failed install (folder and `MPC.settings` restored), zip inspection before unpacking, and the glibc/OS
   and architecture refusals. See `tools/plugin_manager_g2/DESIGN.md`.
+- **Offline only, added the same day (x86 container, fake devices):** `plugin-history.json` beside the state file, backup pruning (keep the newest 10
+  `MPC.settings.bak-*` after a successful apply), local zips (`<drive>/local-plugins/<name>.zip` become cards), and REGISTER for a folder that has a
+  `plugin-meta.xml` but no list entry (the installer's `plugin_list.awk`, `MPC.settings` snapshotted first). A test orphan was made on the Live III
+  (2026-10-28) to try registration; not yet run there. A big plugin's rollback copy goes beside it on its own drive, not in RAM.
+- **MPC's skin image cache can fill a Live III's RAM and make parts of a screen draw black (device, 2026-10-28, MPC OS 3.10.0.49).** `/var/volatile` (a 3.9 GB
+  tmpfs; `/var/cache`, `/var/spool` and `/srv` are overlays over it) held `/var/volatile/tmp/filmstrips`: 3497 `temp_*.img` files, 4.15 GB, 100% used, free RAM
+  1.4 GB of 8. Each skin load of the manager wrote 100 to 400 files (250 to 830 MB) while its skin had a thumbnail button per catalog id per row
+  (159 ids x 5 rows); with the volume full, the THEME text, the ONLINE pill, the disk bar, the UPDATES count and the status line drew as black rectangles
+  (identical on three builds, so not the skin layout). MPC had none of the files open; deleting them (with the owner's OK) took the volume to 0% and
+  the skin drew normally after reopening the plugin. A load of the same skin with thumbnails only for the 39 ids that have an aarch64 zip added 14 MB
+  (96 files). Only a reboot is known to empty it otherwise (not tried). The manager now warns at 85% used. Same mechanism as the 2026-10-04 note above.
 
 
 ### 2026-10-28: MPC One (Gen2) layout; the installer's Gen2 internal drive is no longer only `/nvme/Synths` (offline + a user report)
@@ -1911,3 +1922,47 @@ new one (trigger max 70 %); at 2.8 ms (over `TRIGGER_WARN_PCT`) it WARNs. `bench
 - A user's MPC One (aarch64, OS 3.9.1) sent `mount | grep ...` and `df -h`: no `/nvme`; `/synths` = eMMC ext4 (91% used), `/storage` = a 31 GB loopback with 17 GB free, `/data` 100% (it holds the loopback image), SD at `/media/MPC`. This is the layout behind their earlier "unknown internal drive path" report and behind Eurikon's v1.2.0 "Plugin content folder or settings missing" (it guessed `/nvme/Synths`).
 - Firmware (stock Gen2 3.9.1 image, read offline): `nvme.mount` is conditioned on the device tree flag `inmusic,nvme-fitted`, `storage.mount` on `inmusic,acvs-loopback-content`, `content.mount` on `inmusic,emmc-content`, `sdcard.mount` on `inmusic,internal-sd-fitted`; hostname files map `acva3` to the One, `acvc` to the XL, `acvg` to the Live III, `acvr2` to the Key 37. MPC also reads `inmusic,panel-rotation` for its screen orientation (see the XL entry).
 - Change: `SynthsAlt` in `tools/desktop/device.go` is now an ordered list (`/nvme/Synths /storage/Synths`; the first found becomes the internal drive when `/sdcard/Synths` is absent), `/storage/Synths` is a root and `/storage` a drive that can be given a Synths folder; two new tests (`gen2_test.go`) cover a One with no NVMe and the first-wins order. `go test ./...` passes. `tools/mpc-store.sh` has the same fallback. Not run against a real One.
+
+### 2026-10-28: MPC One (Gen2) follow-up from the same user: `/storage/Synths` confirmed (user report, SSH output)
+
+- `mount`: `/synths` ext4 `ro`; `/data` ext4 `rw`; `/storage` (`/dev/loop0p1`) exfat `rw,relatime,fmask=0022,dmask=0022,iocharset=utf8,errors=remount-ro` (no `noexec`).
+- `MPC.settings` plugin locations: `/media/MPC/Synths` and `/storage/Synths`, with eight plugins registered under the latter (Gm0rb Liminal Amp and Hz, athousanddetails 6W6/8W8/9W9/CW-78, johnny Tributary, sd88me Acid-303). So `/storage/Synths` exists, is exec-capable and is MPC's own scanned location on a One; PR #589 (`/storage/Synths` as the Gen2 internal drive) matches it.
+- The community manager's 1.2.1 storage code is generic (it follows `Content.Manager.Directory` in `MPC.settings` to a mounted rw, exec drive and uses its `Synths` folder), so it should work on a One without a layout special case; its 1.2.0 guessed `/nvme/Synths`. Their `Content.Manager.Directory` (asked for, answered the same day) is `val="/media/MPC/"`: the SD card. So 1.2.1's automatic location on this One is `/media/MPC/Synths`, the choice MPC itself makes; `/storage/Synths` is the one the user has used so far. Whether the SD mount is exec-capable was not shown.
+
+### 2026-10-29: installer pin moves to the community manager's own v1.2.2 (it contains our fixes); fork retired as the pin target
+
+- Eurikon merged all five of our pull requests (#4 helper failure log, #5 the Gen2 settings crash, #6 running-MPC overlay check, #7 linear settings scan, #8 display rotation override, each with his own hardening) on 2026-10-28 and released `v1.2.2` (zip sha256 `cd02c6d5...b3e2`, matches his published `.sha256`). Compared with v1.2.1: the same 21 entries, only the two `manager` binaries, the helper `.xpa` and the checksum files differ; `autorun/open.sh` and `autorun.json` are identical, so our SSH wrapper's assumptions hold.
+- Device (Live III, MPC 3.10.0.49 over 3.9.1, five addins): a build of his `main` (= v1.2.2) plus our unmerged welcome-screen change was opened with Shift+Menu with the helper UNPATCHED: his `running_mpc` check accepted the overlay (before, the helper needed a hand edit of `MPC=`), the manager opened, and it installed a plugin. His official zip itself was deployed to the stick but not opened separately; the tested binary differs from it only by the welcome-screen change.
+- `tools/desktop/easystick-pin.json` and the `easyStickVersion`/`easyStickSHA256` fallback now name v1.2.2. Installers already out read the pin file from `main`, so they pick it up without a new installer release; a new release only refreshes the offline fallback and the page text.
+- The earlier draft pin to our fork's v1.2.2 (PR #591) is closed: upstream now carries what the fork had.
+
+### 2026-10-29: installer pin moves to our fork's v1.2.3 (upstream v1.2.2 + the OpenMPC Plugin Manager G2 option) until upstream carries it
+
+- Why: upstream's welcome screen still offers poloq's Plugin Manager, which has no Gen 2 package and is about to leave the catalog. Our change (upstream pull request #10: the option installs OpenMPC Plugin Manager G2 by tag prefix, and is disabled until a plugin location is chosen) is under review there, so the installer pins a fork build meanwhile. When upstream releases with it, set the pin back to his release; the allowlist accepts both.
+- Fork `sd88me/plugin-manager-usb-for-open-mpc` v1.2.3 = upstream v1.2.2 + the G2 option + `MPC_MANAGER_REPO` (so the manager's own update check follows the fork instead of moving users to a release without the option). Build: upstream's Dockerfile and `package.py` run on this machine; versus his v1.2.2 zip the same 21 entries, only the two `manager` binaries, the helper `.xpa` and the checksum files differ; zip sha256 `030e239d...aa05`. Built from a clean clone at tag `v1.2.3` so the manager reports itself as a release (git inside the old build image needs `git config --global --add safe.directory`, its environment-variable form is ignored).
+- `easystick.go` now accepts pin URLs under upstream's or the fork's release page only.
+- Device: the same code (his main + the G2 change) installed OpenMPC Plugin Manager G2 0.2.0 on a Live III through the option (see the 2026-10-29 entries above).
+
+## 2026-10-29: poloq's Plugin Manager removed from the catalog (offline change)
+
+poloq agreed to remove `plugin-manager` (poloq-instruments/mpc-vst-manager) because it will not be worked on any more; the OpenMPC Plugin Manager G2 (`plugin-manager-g2`, a fork of it, Gen1 and Gen2) replaces it. Removed `catalog/plugins/plugin-manager.json` and its `catalog/added.json` line; the USB stick's default install id (`tools/usb_stick/make_stick.py`, `run.sh`) is now `plugin-manager-g2`. Older entries above that name `plugin-manager` describe what was true when they were run. Not run on a device: a stick built with the new default.
+
+## 2026-10-29: installer v1.1.0 pre-release, Level 1 stick and SSH-stick findings (device-verified where stated)
+
+- **Level 1 stick** (`tools/usb_g2`, installer's "Basic user" section): our own autorun script installs the bundled OpenMPC Plugin Manager G2. Confirm one prompt on MPC OS 3.9.1 or earlier and it installs. Worked on a Force (armv7) and a Live III (aarch64), device-verified. The installer asks the MPC OS first, because 3.10 has no USB prompt.
+- **SSH stick, Live III (device-verified):** the password option fails by design on a Gen2: its root is verity read-only, so the script refuses ("use a key"). A key works, on tmpfs, until the next reboot. The installer now blocks a password stick when the firmware looks Gen2 and says "Gen2 needs a key". The addin re-apply step also failed for a Commander install whose `addin-lib.sh` predates `resolve_dropin_root` (a stale installed addin, not a stick bug).
+- **SSH stick, Force (device-verified):** busybox has no `chpasswd`, so the password step died with status 127 and SSH stayed off. `enable_ssh.sh` now falls back to a crypt hash written to the shadow file (openssl, mkpasswd or cryptpw), then `passwd`, and reports success only if root's entry changed (offline-tested with stand-in tools; which of those the Force has is not yet confirmed).
+- **Bundled manager on the SSH stick** opened on every insertion; it now opens the first time and again only when `open-plugin-manager.txt` is on the stick.
+- **Windows:** the installer's folder dialog could not leave `C:\`; it now lists mounted drives.
+
+## 2026-10-29: plugin manager stick confirmed on a Live III running stock MPC OS 3.10 (device)
+
+On a Live III running stock 3.10 (not the 3.10-over-3.9.1 overlay), the plugin manager stick (the installer's "Plugin manager stick" section, with the helper imported) opened the manager when the stick was inserted and also with Shift + Menu. Why it opens on insertion is not understood (the helper may watch for the stick); to ask the manager's author. The installer's Gen2 callout said 3.10 was unconfirmed on stock and now says it is confirmed on a Live III.
+
+Its `manager-result.txt` (Live III, stock 3.10, 2026-10-29, device): `Display: mode 800x1280, portrait=1, flipped=0, devicetree panel-rotation=[]` (a Live III has no rotation setting, as expected); "Failed to create /root/.cache for shader cache (Read-only file system)" (harmless); `Could not restore CRTC` at start and end (seen on a normal run, harmless as far as seen); the catalog (`catalog.tsv` 140 KB, `catalog.json` 2.1 MB) fetched with busybox `wget`, which says "TLS certificate validation not implemented" (the manager's own size and sha256 checks on packages are what protect an install); "Manager closed; RAM catalog and downloads discarded". The welcome screen's OpenMPC Plugin Manager G2 button said "Installed", because G2 (0.2.1) was already on the device and the manager shows "Installed" for any plugin it finds, even one it did not install (so it did not offer 0.2.2).
+
+Reading Eurikon's helper `bootstrap.sh` (v1.2.2, offline, 2026-10-29): on 3.10 it checks the stick's `autorun/runtime` files against a checksum list built into the helper and copies a fixed file list to RAM, then runs its own `setup.sh`. It never runs the stick's `autorun/open.sh`, so our SSH and addin wrapper cannot run on 3.10. Asking him for an optional hook (for example an unchecked `extras/run.sh`) would be the way.
+
+## 2026-10-29: why the manager opened on insertion on stock 3.10 (device + his README)
+
+The stock 3.10 Live III opened the manager when the stick was inserted, and the user thought the helper import was no longer needed. It is still needed: the helper from the earlier 3.10-overlay tests was still in `/nvme/MPC Documents/Devices/Plugin Manager helper` (read over SSH 2026-10-29 after the downgrade; files dated 2026-10-28), and that folder is shared by the overlay and stock 3.10. Eurikon's README says that once the helper is installed, a fresh insertion on 3.10 offers Open or Cancel, with Shift + Menu for a stick already inserted at boot. A clean test (delete the helper, restart, insert the stick) would show the stick alone does nothing, as expected.
