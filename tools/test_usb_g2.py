@@ -350,7 +350,7 @@ class Device(Tmp):
         self.assertEqual(self.ctl(), [])
 
     def test_a_nearly_full_internal_drive_is_refused_with_the_figure_and_what_to_do(self):
-        # a tester's Force: /sdcard really had 17240 KB free, and the stick must say so plainly
+        # a Force's /sdcard (the system partition) really had 17240 KB free: the stick must say so plainly
         self.mounts, self.locations = [], []
         sd = self.drive("sdcard")
         os.environ["STUB_DF_SDCARD"] = "17240"
@@ -360,7 +360,7 @@ class Device(Tmp):
             os.environ.pop("STUB_DF_SDCARD")
         self.assertEqual(r.returncode, 1)
         self.assertIn("17240 KB free", result)
-        self.assertIn("Free some space", result)
+        self.assertIn("64 MB is required", result)
         self.assertEqual(self.ctl(), [])
         self.assertFalse(self.log.exists())
 

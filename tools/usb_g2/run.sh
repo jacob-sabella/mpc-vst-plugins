@@ -8,7 +8,7 @@
 #    MPC.settings (SynthContentLocations) that are Synths folders on a read-write, executable, lasting mount with room (a listed folder
 #    that is not there yet counts if its parent is). Two paths to one folder count once. It is chosen only when exactly one qualifies;
 #    otherwise nothing is installed and the result file says what was found, and what the device has. Nothing is guessed.
-#  - (The internal data partition, /media/az01-internal, is the second choice when no model drive is usable.)
+#  - (Where no model drive can take it, the internal user data partition, /media/az01-internal, is used.)
 #  - When MPC lists no internal Synths folder at all (a fresh Force lists only Akai's own content), the one internal drive (/sdcard, /nvme or
 #    /storage: its own mount, read-write, executable, lasting, with room) gets a Synths folder, which is added to MPC's list of plugin folders
 #    (MPC stopped, MPC.settings backed up first and checked after) so the plugin's skin shows. More than one such drive: nothing is installed.
@@ -135,7 +135,7 @@ while read -r c; do
     [ -n "$why" ] || { r=$(mount_ok "$at") || why=$r; }
     if [ -z "$why" ]; then
         free=$(free_kb "$at")
-        [ "${free:-0}" -ge 65536 ] || why="has too little free space (${free:-unknown} KB free; the plugin manager needs about 40 MB, and 64 MB is required). Free some space on this drive and try again"
+        [ "${free:-0}" -ge 65536 ] || why="has too little free space (${free:-unknown} KB free; the plugin manager needs about 40 MB, and 64 MB is required)"
     fi
     if [ -z "$why" ]; then
         key=$(stat -L -c '%d:%i' "$at" 2>/dev/null)
@@ -171,7 +171,7 @@ try_drives() {
         [ -n "$why" ] || { r=$(mount_ok "$drive") || why=$r; }
         if [ -z "$why" ]; then
             free=$(free_kb "$drive")
-            [ "${free:-0}" -ge 65536 ] || why="has too little free space (${free:-unknown} KB free; the plugin manager needs about 40 MB, and 64 MB is required). Free some space on this drive and try again"
+            [ "${free:-0}" -ge 65536 ] || why="has too little free space (${free:-unknown} KB free; the plugin manager needs about 40 MB, and 64 MB is required)"
         fi
         if [ -z "$why" ]; then fn=$((fn + 1)); fb="$drive/Synths"; echo "Internal drive: $drive (usable; MPC lists no Synths folder on it)"; else echo "Internal drive: $drive $why"; fi
     done
@@ -180,8 +180,9 @@ if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
     # MPC lists no usable internal Synths folder. The conventional internal drive is the one place a plugin can go and still show its skin once
     # it is listed, so: exactly one such drive, as a mount of its own (a stub folder on the root filesystem is not a drive), read-write,
     # executable, lasting, with room. The model's own plugin drive comes first (a Force or Live /sdcard, Gen2 /nvme or /storage). Only when
-    # none of those is usable does the internal data partition (/media/az01-internal, where an MPC One keeps its plugins) count, so a Force with
-    # a full /sdcard still gets an install; where both are usable the first tier wins and the second is not even looked at.
+    # none of those is usable does the internal user data partition (/media/az01-internal, where an MPC One keeps its plugins) count. A Force's
+    # /sdcard is the system partition and is meant to hold little free space, so it often cannot take a plugin and /media/az01-internal does;
+    # where both are usable the first tier wins and the second is not even looked at.
     try_drives ${MPC_G2_DRIVES:-/sdcard /nvme /storage}
     if [ "$fn" -eq 0 ]; then
         echo "No model drive is usable; trying the internal data partition"
