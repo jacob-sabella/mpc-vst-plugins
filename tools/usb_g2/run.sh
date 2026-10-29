@@ -8,6 +8,7 @@
 #    MPC.settings (SynthContentLocations) that are Synths folders on a read-write, executable, lasting mount with room (a listed folder
 #    that is not there yet counts if its parent is). Two paths to one folder count once. It is chosen only when exactly one qualifies;
 #    otherwise nothing is installed and the result file says what was found, and what the device has. Nothing is guessed.
+#  - (The internal data partition, /media/az01-internal, is the second choice when no model drive is usable.)
 #  - When MPC lists no internal Synths folder at all (a fresh Force lists only Akai's own content), the one internal drive (/sdcard, /nvme or
 #    /storage: its own mount, read-write, executable, lasting, with room) gets a Synths folder, which is added to MPC's list of plugin folders
 #    (MPC stopped, MPC.settings backed up first and checked after) so the plugin's skin shows. More than one such drive: nothing is installed.
@@ -127,12 +128,10 @@ if [ "$n" -lt 1 ]; then
 fi
 is_mountpoint() { awk -v d="$1" '$2 == d {f = 1} END {exit !f}' "$mounts"; }
 register=0
-if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
-    # MPC lists no usable internal Synths folder. The conventional internal drive is the one place a plugin can go and still show its skin once
-    # it is listed, so: exactly one such drive, as a mount of its own (a stub folder on the root filesystem is not a drive), read-write,
-    # executable, lasting, with room.
+# try_drives <drive>...: how many of these are usable internal drives (fn) and the Synths folder of the last one (fb)
+try_drives() {
     fn=0; fb=""
-    for drive in ${MPC_G2_DRIVES:-/sdcard /nvme /storage}; do
+    for drive in "$@"; do
         why=""
         [ -d "$drive" ] || why="is not there"
         [ -n "$why" ] || is_mountpoint "$drive" || why="is not a drive of its own"
@@ -143,6 +142,18 @@ if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
         fi
         if [ -z "$why" ]; then fn=$((fn + 1)); fb="$drive/Synths"; echo "Internal drive: $drive (usable; MPC lists no Synths folder on it)"; else echo "Internal drive: $drive $why"; fi
     done
+}
+if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
+    # MPC lists no usable internal Synths folder. The conventional internal drive is the one place a plugin can go and still show its skin once
+    # it is listed, so: exactly one such drive, as a mount of its own (a stub folder on the root filesystem is not a drive), read-write,
+    # executable, lasting, with room. The model's own plugin drive comes first (a Force or Live /sdcard, Gen2 /nvme or /storage). Only when
+    # none of those is usable does the internal data partition (/media/az01-internal, where an MPC One keeps its plugins) count, so a Force with
+    # a full /sdcard still gets an install; where both are usable the first tier wins and the second is not even looked at.
+    try_drives ${MPC_G2_DRIVES:-/sdcard /nvme /storage}
+    if [ "$fn" -eq 0 ]; then
+        echo "No model drive is usable; trying the internal data partition"
+        try_drives ${MPC_G2_DRIVES2:-/media/az01-internal}
+    fi
     if [ "$fn" -eq 1 ]; then
         grep -q '</SynthContentLocations>' "$settings" || fail "MPC.settings has no list of plugin folders (SynthContentLocations) to add $fb to; not editing it"
         found=$fb; n=1; register=1
