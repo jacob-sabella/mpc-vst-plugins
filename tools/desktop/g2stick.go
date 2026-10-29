@@ -155,6 +155,82 @@ func WriteG2Stick(out string, data []byte) error {
 	return writeStickZip(out, data, "Level 1 stick", g2StickNeed)
 }
 
+// loadG2Bundle reads a bundle the user chose: the downloaded .zip, or the folder a browser or archive tool unpacked it into
+// (Safari unzips downloads by default). A path pasted from "Copy as path" has quotes round it, and a Mac path may start with ~.
+func loadG2Bundle(p string) ([]byte, error) {
+	p = strings.TrimSpace(p)
+	if len(p) >= 2 && (p[0] == '"' && p[len(p)-1] == '"' || p[0] == '\'' && p[len(p)-1] == '\'') {
+		p = strings.TrimSpace(p[1 : len(p)-1])
+	}
+	if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
+		if h, err := os.UserHomeDir(); err == nil {
+			p = filepath.Join(h, p[1:])
+		}
+	}
+	st, err := os.Stat(p)
+	if err != nil {
+		return nil, fmt.Errorf("can't find that bundle: %s (pick the downloaded .zip with Browse)", p)
+	}
+	if st.IsDir() {
+		if _, err := os.Stat(filepath.Join(p, ".mpc-g2-stick")); err != nil {
+			return nil, fmt.Errorf("%s is a folder, not the bundle: pick the downloaded .zip file (or the folder it was unpacked into, which has an autorun folder in it)", p)
+		}
+		return zipFolder(p)
+	}
+	if st.Size() > g2StickMaxSize {
+		return nil, errors.New("that file is much larger than a bundle (about 40 MB); is it the right file?")
+	}
+	return os.ReadFile(p)
+}
+
+// zipFolder packs an unpacked bundle back into a zip in memory, so one check covers both; links and anything outside the folder are skipped.
+func zipFolder(root string) ([]byte, error) {
+	var b bytes.Buffer
+	zw := zip.NewWriter(&b)
+	total := int64(0)
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil || p == root || d.Type()&os.ModeSymlink != 0 {
+			return err
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(rel)
+		if d.IsDir() {
+			_, err = zw.Create(name + "/")
+			return err
+		}
+		if d.Name() != ".mpc-g2-stick" && isHousekeeping(d.Name()) { // .DS_Store, ._ files, Thumbs.db: not part of the bundle
+			return nil
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		w, err := zw.Create(name)
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		n, err := io.Copy(w, io.LimitReader(f, g2StickMaxSize+1))
+		if total += n; total > g2StickMaxSize {
+			return errors.New("that folder is much larger than a bundle (about 40 MB)")
+		}
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
 // stickG2 writes the Level 1 stick from a local bundle file (the beta path) or the pinned release.
 func (a *App) stickG2(w http.ResponseWriter, r *http.Request) {
 	if !postOnly(w, r) {
@@ -169,12 +245,8 @@ func (a *App) stickG2(w http.ResponseWriter, r *http.Request) {
 	var data []byte
 	version := "local file"
 	if in.Bundle != "" {
-		st, err := os.Stat(in.Bundle)
-		if err != nil || st.IsDir() || st.Size() > g2StickMaxSize {
-			fail(w, 400, "can't use that bundle file")
-			return
-		}
-		if data, err = os.ReadFile(in.Bundle); err != nil {
+		var err error
+		if data, err = loadG2Bundle(in.Bundle); err != nil {
 			fail(w, 400, err.Error())
 			return
 		}
