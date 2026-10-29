@@ -396,7 +396,7 @@ func (d *Device) readInfo(host, fp string) error {
 TAB=$(printf '\t')
 echo "arch=$(uname -m)"; echo "uid=$(id -u)"; echo "synths=$S"
 echo "settings=$(ls %s 2>/dev/null | head -n 1)"
-echo "tmpfree=$(df -k %s 2>/dev/null | awk 'NR==2 {print $4}')"
+echo "tmpfree=$(df -kP %s 2>/dev/null | awk 'NR==2 {print $4}')"
 command -v tar >/dev/null 2>&1 && echo tar=1
 command -v systemctl >/dev/null 2>&1 && echo systemctl=1
 libc=""

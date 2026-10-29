@@ -74,6 +74,7 @@ mount_ok() {   # the mount holding $1 is read-write, allows executables and keep
             if (ty ~ /^(tmpfs|ramfs|devtmpfs|squashfs|erofs|iso9660|cramfs)$/) { print m " is " ty ", which is not kept across restarts"; exit 1 }
             exit 0 }' "$mounts"
 }
+free_kb() { df -kP "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }   # -P: without it a long device name wraps the line and $4 is empty (seen on a Force)
 registered() { grep -qF "<Location>$1</Location>" "$settings" || grep -qF "<Location>$1/</Location>" "$settings"; }
 internal() { for pre in ${MPC_G2_INTERNAL:-/media/az01-internal /sdcard /nvme /storage}; do case "$1" in "$pre"/*) return 0 ;; esac; done; return 1; }
 if [ -n "${MPC_G2_CANDIDATES:-}" ]; then list=$(printf '%s\n' $MPC_G2_CANDIDATES)
@@ -99,8 +100,8 @@ while read -r c; do
     [ -n "$why" ] || registered "$c" || why="is not a plugin location MPC lists"   # a skin is drawn only from a listed location
     [ -n "$why" ] || { r=$(mount_ok "$at") || why=$r; }
     if [ -z "$why" ]; then
-        free=$(df -k "$at" 2>/dev/null | awk 'NR==2 {print $4}')
-        [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free"
+        free=$(free_kb "$at")
+        [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free (${free:-unknown} KB)"
     fi
     if [ -z "$why" ]; then
         key=$(stat -L -c '%d:%i' "$at" 2>/dev/null)
@@ -134,8 +135,8 @@ if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
         [ -n "$why" ] || is_mountpoint "$drive" || why="is not a drive of its own"
         [ -n "$why" ] || { r=$(mount_ok "$drive") || why=$r; }
         if [ -z "$why" ]; then
-            free=$(df -k "$drive" 2>/dev/null | awk 'NR==2 {print $4}')
-            [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free"
+            free=$(free_kb "$drive")
+            [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free (${free:-unknown} KB)"
         fi
         if [ -z "$why" ]; then fn=$((fn + 1)); fb="$drive/Synths"; echo "Internal drive: $drive (usable; MPC lists no Synths folder on it)"; else echo "Internal drive: $drive $why"; fi
     done
@@ -158,7 +159,7 @@ fi
 
 # the package is unpacked in RAM (/tmp), so check there is room (the plugin is ~330 MB unpacked)
 if [ -z "${MPC_USB_TEST:-}" ]; then
-    avail=$(df -k "$work" | awk 'NR==2 {print $4}')
+    avail=$(free_kb "$work")
     [ "${avail:-0}" -ge 600000 ] || fail "not enough free memory to unpack the package (${avail:-0} KB free, 600000 needed); restart the device and try again"
 fi
 mkdir -p "$work/pkg"
