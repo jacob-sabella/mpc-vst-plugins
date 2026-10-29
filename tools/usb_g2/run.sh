@@ -88,6 +88,39 @@ else
 $(grep -o '<Location>[^<]*</Location>' "$settings" | sed 's/<[^>]*>//g')
 EOF
 fi
+# A scan of every real drive that needs no model names, for the report only (nothing here changes what is installed): a drive is an
+# internal candidate when it is a block device that is not on a USB bus, read-write, executable, lasting, with 64 MB free, and not a
+# system folder; one line per partition. Reports from many models will say whether this rule could replace the model drives above.
+shadow_scan() {
+    echo "--- drive scan (for support; not used to choose yet) ---"
+    sysblk="${MPC_G2_SYSFS:-/sys/class/block}"; seen_dev=" "
+    while read -r dev mp ty opts rest; do
+        case "$dev" in /dev/*) ;; *) continue ;; esac
+        p=$(printf '%b' "$mp"); name=${dev#/dev/}
+        case "$seen_dev" in *" $dev "*) continue ;; esac
+        seen_dev="$seen_dev$dev "
+        bus=$(readlink -f "$sysblk/$name" 2>/dev/null)
+        why=""
+        case "$p" in /|/usr|/usr/*|/var|/var/*|/etc|/etc/*|/boot|/boot/*|/factory|/factory/*|/synths|/synths/*|/media/acvs-*|/lib|/lib/*|/proc|/sys|/dev|/run|/tmp) why="is a system folder" ;; esac
+        [ -n "$why" ] || case "$dev" in /dev/dm-*|/dev/ram*) why="is not a drive" ;; esac
+        if [ -z "$why" ]; then case "$dev" in /dev/loop*)
+            # an MPC One or Key keeps its internal drive (/storage) as an image file on /data, mounted through a loop device: it is internal
+            # when that file lives on internal storage (not under /media, where external drives are mounted)
+            bf=$(cat "$sysblk/$name/loop/backing_file" 2>/dev/null)
+            case "$bf" in /data/*|/sdcard/*|/nvme/*|/storage/*) bus="" ;; *) why="is a loop device not backed by an internal file${bf:+ ($bf)}" ;; esac ;;
+        esac; fi
+        [ -n "$why" ] || case "$bus" in */usb*) why="is on a USB bus (external)" ;; esac
+        [ -n "$why" ] || case ",$opts," in *,rw,*) ;; *) why="is read-only" ;; esac
+        [ -n "$why" ] || case ",$opts," in *,noexec,*) why="does not allow executables (noexec)" ;; esac
+        [ -n "$why" ] || case "$ty" in tmpfs|ramfs|devtmpfs|squashfs|erofs|iso9660|cramfs) why="is $ty, not kept across restarts" ;; esac
+        fk=$(free_kb "$p")
+        [ -n "$why" ] || [ "${fk:-0}" -ge 65536 ] || why="has too little free space"
+        listed=""; registered "$p/Synths" && listed=", MPC lists $p/Synths"
+
+        if [ -z "$why" ]; then echo "  $p ($name, $ty, ${fk:-?} KB free$listed) would qualify"; else echo "  $p ($name, $ty, ${fk:-?} KB free) $why"; fi
+    done < "$mounts"
+    echo "--- end of drive scan ---"
+}
 found=""; n=0; seen=" "
 while read -r c; do
     [ -n "$c" ] || continue
@@ -160,6 +193,7 @@ if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
         echo "Will create $fb and add it to MPC's list of plugin folders"
     fi
 fi
+shadow_scan
 [ "$n" -ge 1 ] || fail "no internal Synths folder qualifies on this device"
 [ "$n" -eq 1 ] || fail "more than one Synths folder qualifies; not choosing between them"
 target=$found
