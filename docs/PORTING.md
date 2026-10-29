@@ -152,6 +152,10 @@ for the pattern). This applies to every future port, not just ones that hit the 
       `gen_vst.py` lists it as `PLUG_LIVE` in params.h and `host_test`'s "parameter 0 toggle changes nothing" check skips it. Without it that check
       fails offline (2026-10-27, found porting the Plugin Manager). `host_test` also no longer uses parameter 0 for its option-step tests: the
       wrapper holds parameter 0 for MPC's STOP toggle, so a one-event move of it does not step.
+- [ ] A param you retired from the screen but kept in the table, so saved projects and automation keep their indices, gets
+      `"legacy": true` in params.json: `gen_vst.py` lists it as `PLUG_LEGACY` in params.h and `host_test` no longer picks it as
+      the first knob, option list or whole number of its checks (2026-10-29, offline: `poc/steptest` with its first param flagged
+      moved the knob check to the next one). Keep the param in the table; do not reorder it away to get a green test.
 - [ ] Option lists and `"display": "int"` params step one option or whole number per Q-Link event and per data wheel
       click (`settle()`). If a short one races by under a Q-Link, `"qlink_ticks": N` on that param (opt-in, off by default)
       counts N events per step: 6 suited a 9-option list on a Key 37. It costs N wheel clicks per step too, and on a Force
