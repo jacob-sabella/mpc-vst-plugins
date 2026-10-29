@@ -145,7 +145,7 @@ class Device(Tmp):
             self.locations.append(str(folder))
         return str(folder)
 
-    def run_device(self, candidates, arch="armv7", rc=0, tamper=None, internal=None, drives=None, settings_text=None):
+    def run_device(self, candidates, arch="armv7", rc=0, tamper=None, internal=None, drives=None, drives2=None, settings_text=None):
         settings = self.p / "MPC.settings"
         settings.write_text("<PROPERTIES><VALUE name=\"SynthContentLocations\"><SynthContentLocations>%s</SynthContentLocations></VALUE></PROPERTIES>" %
                             "".join("<Location>%s</Location>" % l for l in self.locations))
@@ -163,7 +163,7 @@ class Device(Tmp):
         shim.chmod(0o755)
         # busybox df wraps a long device name onto its own line unless -P is given, which leaves the numbers one line down
         df = self.p / "bin" / "df"
-        df.write_text("#!/bin/sh\ncase \"$*\" in *P*) echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo \"/dev/mapper/a-long-device-name 9000000 1000 ${STUB_DF_AVAIL:-8000000} 1% /x\" ;; *) echo 'Filesystem 1K-blocks Used Available Use% Mounted on'; echo '/dev/mapper/a-long-device-name'; echo \"  9000000 1000 ${STUB_DF_AVAIL:-8000000} 1% /x\" ;; esac\n")
+        df.write_text("#!/bin/sh\nfor last; do :; done\ncase \"$last\" in *sdcard*) AVAIL=${STUB_DF_SDCARD:-8000000} ;; *) AVAIL=${STUB_DF_AVAIL:-8000000} ;; esac\ncase \"$*\" in *P*) echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo \"/dev/mapper/a-long-device-name 9000000 1000 ${AVAIL} 1% /x\" ;; *) echo 'Filesystem 1K-blocks Used Available Use% Mounted on'; echo '/dev/mapper/a-long-device-name'; echo \"  9000000 1000 ${AVAIL} 1% /x\" ;; esac\n")
         df.chmod(0o755)
         env = dict(os.environ, MPC_USB_TEST="1", MPC_G2_ARCH=arch, MPC_SETTINGS=str(settings), MPC_MOUNTS=str(mounts),
                    STUB_LOG=str(self.log), STUB_RC=str(rc), PATH=str(self.p / "bin") + os.pathsep + os.environ["PATH"])
@@ -173,6 +173,7 @@ class Device(Tmp):
             env["MPC_G2_INTERNAL"] = " ".join(internal)
         if drives is not None:
             env["MPC_G2_DRIVES"] = " ".join(drives)
+        env["MPC_G2_DRIVES2"] = " ".join(drives2) if drives2 is not None else "/nonexistent-g2-drive"   # never the host's own /media/az01-internal
         r = subprocess.run(["sh", str(self.stick / "autorun/open.sh")], capture_output=True, text=True, env=env)
         result = (self.stick / "g2-install-result.txt").read_text() if (self.stick / "g2-install-result.txt").exists() else ""
         return r, result
@@ -349,15 +350,55 @@ class Device(Tmp):
         # a tester's Force: /sdcard really had 17240 KB free, and the stick must say so plainly
         self.mounts, self.locations = [], []
         sd = self.drive("sdcard")
-        os.environ["STUB_DF_AVAIL"] = "17240"
+        os.environ["STUB_DF_SDCARD"] = "17240"
         try:
             r, result = self.run_device(None, drives=[sd])
         finally:
-            os.environ.pop("STUB_DF_AVAIL")
+            os.environ.pop("STUB_DF_SDCARD")
         self.assertEqual(r.returncode, 1)
         self.assertIn("17240 KB free", result)
         self.assertIn("Free some space", result)
         self.assertEqual(self.ctl(), [])
+        self.assertFalse(self.log.exists())
+
+    # a Force whose /sdcard is full but whose internal data partition (/media/az01-internal) has room: the second tier is used
+    def run_tiers(self, sdcard_free="8000000", second=True, first_extra=None):
+        self.mounts, self.locations = [], ["/media/SSD 512GB/Synths"]
+        sd = self.drive("sdcard")
+        data = self.drive("az01-internal") if second else str(self.fs / "az01-internal")
+        os.environ["STUB_DF_SDCARD"] = sdcard_free
+        try:
+            first = [sd] + (first_extra(self) if first_extra else [])
+            r, result = self.run_device(None, drives=first, drives2=[data])
+        finally:
+            os.environ.pop("STUB_DF_SDCARD")
+        return sd, data, r, result
+
+    def test_a_full_model_drive_falls_back_to_the_internal_data_partition(self):
+        sd, data, r, result = self.run_tiers(sdcard_free="17240")
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("ARGS: -y -n -t %s/Synths" % data, self.log.read_text())
+        self.assertIn("<Location>%s/Synths</Location>" % data, self.settings.read_text())
+        self.assertIn("trying the internal data partition", result)
+        self.assertEqual(self.ctl(), ["stop", "start"])
+
+    def test_the_data_partition_is_not_used_while_the_model_drive_is_usable(self):
+        sd, data, r, result = self.run_tiers()
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("ARGS: -y -n -t %s/Synths" % sd, self.log.read_text())
+        self.assertNotIn("trying the internal data partition", result)
+        self.assertNotIn("<Location>%s/Synths</Location>" % data, self.settings.read_text())
+
+    def test_two_usable_model_drives_refuse_even_when_the_data_partition_is_usable(self):
+        sd, data, r, result = self.run_tiers(first_extra=lambda t: [t.drive("nvme")])
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.ctl(), [])
+        self.assertFalse(self.log.exists())
+
+    def test_the_data_partition_must_be_a_drive_of_its_own_too(self):
+        sd, data, r, result = self.run_tiers(sdcard_free="17240", second=False)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("/az01-internal is not there", result)
         self.assertFalse(self.log.exists())
 
     def test_two_candidates_are_not_chosen_between(self):
