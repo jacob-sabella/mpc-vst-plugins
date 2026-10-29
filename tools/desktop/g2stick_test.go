@@ -206,3 +206,55 @@ func TestStickBuildRefusesAPasswordForAGen2Firmware(t *testing.T) {
 		t.Fatal("wrote a stick anyway")
 	}
 }
+
+// A tester's "can't use that bundle file": a quoted path, a ~ path, or the folder Safari unpacked the zip into.
+func TestLoadG2BundleAcceptsTheWaysPeopleNameAFile(t *testing.T) {
+	d := t.TempDir()
+	zipPath := filepath.Join(d, "bundle.zip")
+	body := easyZip(t, goodG2())
+	os.WriteFile(zipPath, body, 0644)
+	t.Setenv("HOME", d)
+	t.Setenv("USERPROFILE", d)
+	for name, p := range map[string]string{
+		"plain":  zipPath,
+		"quoted": `"` + zipPath + `"`,
+		"single": `'` + zipPath + `'`,
+		"padded": "  " + zipPath + "\n",
+		"home":   "~/bundle.zip",
+	} {
+		got, err := loadG2Bundle(p)
+		if err != nil || len(got) != len(body) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	// the folder an archive tool unpacked it into (hidden marker file and all) goes through the same check
+	unpacked := filepath.Join(d, "unpacked")
+	for n, c := range goodG2() {
+		os.MkdirAll(filepath.Dir(filepath.Join(unpacked, n)), 0755)
+		os.WriteFile(filepath.Join(unpacked, n), []byte(c), 0644)
+	}
+	os.WriteFile(filepath.Join(unpacked, ".DS_Store"), []byte("x"), 0644)
+	data, err := loadG2Bundle(unpacked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteG2Stick(t.TempDir(), data); err != nil {
+		t.Fatalf("an unpacked bundle folder was refused: %v", err)
+	}
+}
+
+func TestLoadG2BundleSaysWhatIsWrong(t *testing.T) {
+	d := t.TempDir()
+	if _, err := loadG2Bundle(filepath.Join(d, "nope.zip")); err == nil || !strings.Contains(err.Error(), "can't find that bundle") {
+		t.Errorf("a missing file: %v", err)
+	}
+	if _, err := loadG2Bundle(d); err == nil || !strings.Contains(err.Error(), "is a folder, not the bundle") {
+		t.Errorf("an ordinary folder: %v", err)
+	}
+	os.WriteFile(filepath.Join(d, "x.zip"), []byte("not a zip"), 0644)
+	if data, err := loadG2Bundle(filepath.Join(d, "x.zip")); err != nil {
+		t.Fatal(err)
+	} else if err := checkG2Bundle(data); err == nil || !strings.Contains(err.Error(), "not a zip") {
+		t.Errorf("a file that is not a zip: %v", err)
+	}
+}
