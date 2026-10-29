@@ -1592,7 +1592,7 @@ static void prepare(mgr_t *m, pkg_t *q) {
     FILE *f = err ? NULL : fopen(WORK "/apply.sh", "w");
     if (!err && !f) err = "apply.sh could not be written";
     if (f) {
-        fprintf(f, "#!/bin/sh\n# written by the OpenMPC Plugin Manager G2; runs as a transient systemd unit, outside MPC\n"
+        fprintf(f, "#!/bin/sh\n# written by the OpenMPC Plugin Manager VST; runs as a transient systemd unit, outside MPC\n"
                    "exec >>" WORK "/apply.log 2>&1\necho \"== apply $(date)\"\nSTATE='%s'\n"
                    "quiesce() { systemctl stop acvs; i=0; while pidof MPC >/dev/null && [ $i -lt 30 ]; do sleep 1; i=$((i + 1)); done; }\n"
                    "quiesce\n"

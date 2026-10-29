@@ -1,4 +1,6 @@
-# OpenMPC Plugin Manager G2
+# OpenMPC Plugin Manager VST
+
+> **Name.** The plugin is called the **OpenMPC Plugin Manager VST** (it used to be called "G2", which people took for a Gen2-only plugin: it runs on Gen1, Force and Gen2). Until its next release the name it shows on the device, its folder and its files still say "Plugin Manager G2" (`Plugin-Manager-G2-<version>-mpc-<armv7|aarch64>.zip`, catalog id `plugin-manager-g2`); those identifiers stay so installs and updates keep working.
 
 Browse the OpenMPC plugin catalog and **install, update and remove plugins on the MPC itself**, from a plugin that runs inside MPC with its
 own touchscreen skin. No computer, no USB stick and no SSH once it is installed. Built **Gen2 first** (MPC Live III and the other 64-bit

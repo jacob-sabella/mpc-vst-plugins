@@ -1,6 +1,6 @@
 package main
 
-// The "Level 1" USB stick (beta): a prebuilt stick that carries our own autorun script and the OpenMPC Plugin Manager G2
+// The "Level 1" USB stick (beta): a prebuilt stick that carries our own autorun script and the OpenMPC Plugin Manager VST
 // packages, built by tools/usb_g2/build_stick.py. Confirm the stock prompt on MPC OS 3.9.1 or earlier and it installs G2
 // and restarts MPC. Like the easy stick it is written as-is: the installer reads no firmware, and nothing derived from
 // one but autorun.check is on the stick. This file checks a bundle before writing it, then unpacks it.

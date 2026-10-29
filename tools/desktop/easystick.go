@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	easyStickVersion = "v1.2.3" // sd88me fork of upstream v1.2.2 plus the OpenMPC Plugin Manager G2 welcome-screen option (upstream PR #10); switch back to the upstream release when it carries the change; device-tested on a Live III, 2026-10-29
+	easyStickVersion = "v1.2.3" // sd88me fork of upstream v1.2.2 plus the OpenMPC Plugin Manager VST welcome-screen option (upstream PR #10); switch back to the upstream release when it carries the change; device-tested on a Live III, 2026-10-29
 	easyStickMaxSize = 16 << 20 // the zip is ~1.8 MB; refuse anything wildly larger
 )
 

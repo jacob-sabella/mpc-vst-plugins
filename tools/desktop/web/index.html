@@ -109,7 +109,7 @@ footer { color:var(--muted); font-size:12.5px; margin-top:24px; }
   <ul>
     <li><b>Basic user: one-prompt install stick (MPC OS 3.9.1 and earlier only)</b>: <i>the simplest. Pick this if you are on 3.9.1 or earlier.</i>
       <ul>
-        <li>Plug it in, confirm <b>one prompt</b>, and MPC restarts with the OpenMPC Plugin Manager G2 installed. No network needed for the install.</li>
+        <li>Plug it in, confirm <b>one prompt</b>, and MPC restarts with the OpenMPC Plugin Manager VST installed. No network needed for the install.</li>
       </ul></li>
     <li><b>Plugin manager stick (all MPC OS versions, including 3.10)</b>: <i>browse and install plugins on the MPC's own screen. Pick this if you are on 3.10 or want the full catalog.</i>
       <ul>
@@ -220,7 +220,7 @@ footer { color:var(--muted); font-size:12.5px; margin-top:24px; }
 <summary><h2>Basic user: one-prompt install stick (MPC OS 3.9.1 and earlier only)</h2><span class="hint">Show</span></summary>
 <section class="guide">
   <ul>
-    <li><b>What it is:</b> the simplest way. A stick that installs the <b>OpenMPC Plugin Manager G2</b> for you. Confirm one prompt and MPC restarts with it installed. No SSH, no network, no manager screens to learn. <i>Private beta.</i></li>
+    <li><b>What it is:</b> the simplest way. A stick that installs the <b>OpenMPC Plugin Manager VST</b> for you. Confirm one prompt and MPC restarts with it installed. No SSH, no network, no manager screens to learn. <i>Private beta.</i></li>
     <li><b>Which MPC OS are you on?</b>
       <label><input type="radio" name="l1-os" value="old"> 3.9.1 or earlier</label>
       <label><input type="radio" name="l1-os" value="new"> 3.10</label>
@@ -260,12 +260,12 @@ footer { color:var(--muted); font-size:12.5px; margin-top:24px; }
     <li><b>Why use this one instead of the basic stick:</b>
       <ul>
         <li>Works on <b>MPC OS 3.10</b> too (the basic stick can't, 3.10 has no USB prompt).</li>
-        <li>Browse the whole plugin catalog on the MPC's screen and install, update or remove plugins, instead of only installing the G2 manager.</li>
+        <li>Browse the whole plugin catalog on the MPC's screen and install, update or remove plugins, instead of only installing the OpenMPC Plugin Manager VST.</li>
         <li>Choose where plugins go (internal drive, SD card, NVMe), and see what is already installed.</li>
-        <li>It also has an <b>OpenMPC Plugin Manager G2</b> button, so you can still get G2 from it.</li>
+        <li>It also has an <b>OpenMPC Plugin Manager VST</b> button, so you can still get it from there.</li>
       </ul></li>
     <li><b>One stick fits every device</b> and picks the right version itself.</li>
-    <li><b>Credit:</b> the on-device manager is <a href="https://github.com/Eurikon/plugin-manager-usb-for-open-mpc" target="_blank" rel="noopener">Plugin Manager USB for OPEN MPC</a> by <b>Twisted Cable</b> (MIT). This installer downloads a build of that project with the OpenMPC Plugin Manager G2 option added, from <a href="https://github.com/sd88me/plugin-manager-usb-for-open-mpc" target="_blank" rel="noopener">our fork</a> (<span id="es-ver"></span>, checked against a fixed checksum), and copies it to your stick.</li>
+    <li><b>Credit:</b> the on-device manager is <a href="https://github.com/Eurikon/plugin-manager-usb-for-open-mpc" target="_blank" rel="noopener">Plugin Manager USB for OPEN MPC</a> by <b>Twisted Cable</b> (MIT). This installer downloads a build of that project with the OpenMPC Plugin Manager VST option added, from <a href="https://github.com/sd88me/plugin-manager-usb-for-open-mpc" target="_blank" rel="noopener">our fork</a> (<span id="es-ver"></span>, checked against a fixed checksum), and copies it to your stick.</li>
   </ul>
   <div class="callout"><b>Gen2 is a beta.</b> <i>Tested on a Live III: on MPC OS 3.9.1 (2026-10-28, including with addins installed) and on stock MPC OS 3.10 (2026-10-29, the manager opened from the stick and with Shift + Menu).</i></div>
   <div id="es-drives"></div>
@@ -359,7 +359,7 @@ footer { color:var(--muted); font-size:12.5px; margin-top:24px; }
 <section id="st3" class="off">
   <h2><span class="n">3</span>Also include the plugin manager</h2>
   <label style="display:flex;gap:10px;align-items:flex-start;font:400 15px var(--text)"><input type="checkbox" id="st-withmgr" checked style="margin-top:4px">
-    <span>Also open the plugin manager from this stick (recommended). It is Twisted Cable's Plugin Manager USB for OPEN MPC (our fork of it, with the OpenMPC Plugin Manager G2 option), downloaded and
+    <span>Also open the plugin manager from this stick (recommended). It is Twisted Cable's Plugin Manager USB for OPEN MPC (our fork of it, with the OpenMPC Plugin Manager VST option), downloaded and
     checked as for the plugin manager stick above. It opens the <b>first time</b> you use the stick, right after SSH is turned on. After that, inserting the stick only re-enables SSH and your addins; put a file called <code>open-plugin-manager.txt</code> on the stick to open the manager again.</span></label>
 </section>
 
@@ -990,7 +990,7 @@ $("es-build").addEventListener("click", function () {
 
 /* Level 1 (beta) stick: ask the MPC OS first, since the stock USB prompt exists only up to 3.9.1. */
 var L1_OS = {
-  "new": "MPC OS 3.10 has no USB prompt, so this stick can't run there. Use the plugin manager stick below: its steps load a small helper once (on 3.10 only), and its welcome screen has an OpenMPC Plugin Manager G2 button.",
+  "new": "MPC OS 3.10 has no USB prompt, so this stick can't run there. Use the plugin manager stick below: its steps load a small helper once (on 3.10 only), and its welcome screen has an OpenMPC Plugin Manager VST button.",
   unsure: "Check Menu, Preferences, About (or Settings, Info) on the MPC. If it says 3.9.1 or earlier, choose that. If it says 3.10, use the plugin manager stick below."
 };
 Array.prototype.forEach.call(document.getElementsByName("l1-os"), function (r) {
