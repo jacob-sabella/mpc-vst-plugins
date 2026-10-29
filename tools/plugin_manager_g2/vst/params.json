@@ -473,7 +473,9 @@
     "q_update",
     "q_remove",
     "disabled",
-    "menu"
+    "menu",
+    "register",
+    "q_register"
    ]
   },
   {
@@ -621,7 +623,9 @@
     "q_update",
     "q_remove",
     "disabled",
-    "menu"
+    "menu",
+    "register",
+    "q_register"
    ]
   },
   {
@@ -769,7 +773,9 @@
     "q_update",
     "q_remove",
     "disabled",
-    "menu"
+    "menu",
+    "register",
+    "q_register"
    ]
   },
   {
@@ -917,7 +923,9 @@
     "q_update",
     "q_remove",
     "disabled",
-    "menu"
+    "menu",
+    "register",
+    "q_register"
    ]
   },
   {
@@ -1065,7 +1073,9 @@
     "q_update",
     "q_remove",
     "disabled",
-    "menu"
+    "menu",
+    "register",
+    "q_register"
    ]
   },
   {
@@ -2024,6 +2034,7 @@
     "hank",
     "helm",
     "hera",
+    "hexachord-73",
     "incipience-out",
     "incipience",
     "interzonexxl",
@@ -2054,6 +2065,7 @@
     "monomodule-fx-gen2",
     "monomodule-one-gen2",
     "monomodule",
+    "monoslide",
     "morpho-pe",
     "mpc-dj-fx",
     "mpc-plaits",
@@ -2115,6 +2127,7 @@
     "tr-mpc-tap-fx",
     "tr-mpc",
     "tributary",
+    "tropix",
     "tuner",
     "tuney",
     "usb-audio",
@@ -2190,6 +2203,7 @@
     "hank",
     "helm",
     "hera",
+    "hexachord-73",
     "incipience-out",
     "incipience",
     "interzonexxl",
@@ -2220,6 +2234,7 @@
     "monomodule-fx-gen2",
     "monomodule-one-gen2",
     "monomodule",
+    "monoslide",
     "morpho-pe",
     "mpc-dj-fx",
     "mpc-plaits",
@@ -2281,6 +2296,7 @@
     "tr-mpc-tap-fx",
     "tr-mpc",
     "tributary",
+    "tropix",
     "tuner",
     "tuney",
     "usb-audio",
@@ -2356,6 +2372,7 @@
     "hank",
     "helm",
     "hera",
+    "hexachord-73",
     "incipience-out",
     "incipience",
     "interzonexxl",
@@ -2386,6 +2403,7 @@
     "monomodule-fx-gen2",
     "monomodule-one-gen2",
     "monomodule",
+    "monoslide",
     "morpho-pe",
     "mpc-dj-fx",
     "mpc-plaits",
@@ -2447,6 +2465,7 @@
     "tr-mpc-tap-fx",
     "tr-mpc",
     "tributary",
+    "tropix",
     "tuner",
     "tuney",
     "usb-audio",
@@ -2522,6 +2541,7 @@
     "hank",
     "helm",
     "hera",
+    "hexachord-73",
     "incipience-out",
     "incipience",
     "interzonexxl",
@@ -2552,6 +2572,7 @@
     "monomodule-fx-gen2",
     "monomodule-one-gen2",
     "monomodule",
+    "monoslide",
     "morpho-pe",
     "mpc-dj-fx",
     "mpc-plaits",
@@ -2613,6 +2634,7 @@
     "tr-mpc-tap-fx",
     "tr-mpc",
     "tributary",
+    "tropix",
     "tuner",
     "tuney",
     "usb-audio",
@@ -2688,6 +2710,7 @@
     "hank",
     "helm",
     "hera",
+    "hexachord-73",
     "incipience-out",
     "incipience",
     "interzonexxl",
@@ -2718,6 +2741,7 @@
     "monomodule-fx-gen2",
     "monomodule-one-gen2",
     "monomodule",
+    "monoslide",
     "morpho-pe",
     "mpc-dj-fx",
     "mpc-plaits",
@@ -2779,6 +2803,7 @@
     "tr-mpc-tap-fx",
     "tr-mpc",
     "tributary",
+    "tropix",
     "tuner",
     "tuney",
     "usb-audio",
@@ -2855,6 +2880,7 @@
     "hank",
     "helm",
     "hera",
+    "hexachord-73",
     "incipience-out",
     "incipience",
     "interzonexxl",
@@ -2885,6 +2911,7 @@
     "monomodule-fx-gen2",
     "monomodule-one-gen2",
     "monomodule",
+    "monoslide",
     "morpho-pe",
     "mpc-dj-fx",
     "mpc-plaits",
@@ -2946,6 +2973,7 @@
     "tr-mpc-tap-fx",
     "tr-mpc",
     "tributary",
+    "tropix",
     "tuner",
     "tuney",
     "usb-audio",

@@ -28,6 +28,7 @@ static void page(const char *k, int twice) { usleep((tapms() + 50) * 1000); if (
 
 static void cards(void) {
   printf("  [%s] %s | status(%s): %s | apply_state %s\n", get("page_txt"), get("summary"), get("status_kind"), get("status"), get("apply_state"));
+  if (get("problem")[0] == '1') printf("  banner: %s\n", get("problem_txt"));
   for (int r = 1; r <= 5; r++) {
     char k[32];
     #define F(f) (snprintf(k, sizeof k, "r%d_" f, r), get(k))
@@ -56,7 +57,11 @@ static void prompt(void) {
 }
 
 static void wait_for(const char *key, const char *val) {
-  for (int i = 0; i < 120; i++) { if (!strcmp(get(key), val)) return; sleep(1); }
+  for (int i = 0; i < 120; i++) {
+    if (!strcmp(get(key), val)) return;
+    if (!strcmp(key, "apply_state") && !strcmp(get(key), "4")) { printf("  (apply_state=4 while waiting for %s: the prepare step failed)\n", val); return; }   /* failed: no point waiting out the timeout */
+    sleep(1);
+  }
   printf("  (timeout waiting for %s=%s)\n", key, val);
 }
 
@@ -92,18 +97,26 @@ int main(int argc, char **argv) {
     press("target_next");
     for (int i = 0; i < 60 && strcmp(get("apply_state"), "3"); i++) sleep(1);
     printf("after CHANGE: confirm=%s pick=%s |%s|\n", get("confirm"), get("confirm_pick"), get("confirm_dest"));
+    press("confirm_go");   /* the confirmed place is remembered */
+    e->destroy(m); return 0;
+  }
+  if (argc > 1 && !strcmp(argv[1], "pickshow")) {   /* a fresh start: which place does the restart prompt name first? */
+    set("kind", "1"); press("r1_act"); press("apply");
+    for (int i = 0; i < 60 && strcmp(get("apply_state"), "3") && strcmp(get("apply_state"), "4"); i++) sleep(1);
+    press("apply"); printf("first prompt: confirm=%s pick=%s |%s|\n", get("confirm"), get("confirm_pick"), get("confirm_dest"));
     e->destroy(m); return 0;
   }
   if (argc > 1 && !strcmp(argv[1], "status")) { cards(); e->destroy(m); return 0; }   /* what the manager says on its own (the last apply) */
   if (argc > 2 && !strcmp(argv[1], "one")) {   /* queue the effect called argv[2] and APPLY: the prepare step's verdict */
-    set("kind", "2");
-    for (int p = 0; p < 2; p++) {   /* the effects run to two pages now */
+    if (argc > 4) set("tab", argv[4]);
+    set("kind", argc > 3 ? argv[3] : "2");
+    for (int p = 0, done = 0; p < 2 && !done; p++) {   /* the effects run to two pages now */
     for (int r = 1; r <= 5; r++) {
       char k[32];
       snprintf(k, sizeof k, "card%d_1", r);
-      if (!strcmp(get(k), argv[2])) { snprintf(k, sizeof k, "r%d_act", r); press(k); }
+      if (!strcmp(get(k), argv[2])) { snprintf(k, sizeof k, "r%d_act", r); press(k); done = 1; break; }
     }
-    page("page_next", 0);
+    if (!done) page("page_next", 0);
     }
     press("apply");
     for (int i = 0; i < 60 && strcmp(get("apply_state"), "3") && strcmp(get("apply_state"), "4"); i++) sleep(1);

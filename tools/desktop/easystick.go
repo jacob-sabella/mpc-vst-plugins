@@ -29,15 +29,15 @@ import (
 )
 
 const (
-	easyStickVersion = "v1.2.0" // rolled back from 1.2.1 (2026-10-28): a Live III on 3.10 reported the manager no longer opens with 1.2.1 and works again with the previous release; see docs/NOTES.md
+	easyStickVersion = "v1.2.3" // sd88me fork of upstream v1.2.2 plus the OpenMPC Plugin Manager G2 welcome-screen option (upstream PR #10); switch back to the upstream release when it carries the change; device-tested on a Live III, 2026-10-29
 	easyStickMaxSize = 16 << 20 // the zip is ~1.8 MB; refuse anything wildly larger
 )
 
 // easyStickSHA256 is a var, like the URL, so tests can pin a fixture instead.
-var easyStickSHA256 = "f7914db2a402aa1bb650f62b44b3a57ed5fdfcbabe04b5d66e934a5cfcf13ad8"
+var easyStickSHA256 = "030e239d02b9e48e58f6a270270fff72e27e49c2250908714b64707a2611aa05"
 
 // easyStickURL is a var so tests can point it at a local server.
-var easyStickURL = "https://github.com/Eurikon/plugin-manager-usb-for-open-mpc/releases/download/" +
+var easyStickURL = "https://github.com/sd88me/plugin-manager-usb-for-open-mpc/releases/download/" +
 	easyStickVersion + "/plugin-manager-usb-" + easyStickVersion + ".zip"
 
 // easyPin is one reviewed release of the community manager. The compiled-in one is the fallback; the installer
@@ -52,14 +52,29 @@ type easyPin struct {
 // easyPinURL is a var so tests can point it at a local server; empty means "use the compiled-in pin only".
 var easyPinURL = "https://raw.githubusercontent.com/sd88me/mpc-vst-plugins/main/tools/desktop/easystick-pin.json"
 
-// easyReleasePrefix is the only place a pin file may send the download, so a changed pin file can't point the
-// installer at an arbitrary host.
-const easyReleasePrefix = "https://github.com/Eurikon/plugin-manager-usb-for-open-mpc/releases/download/"
+// easyReleasePrefixes are the only places a pin file may send the download (the upstream project's releases and this
+// project's fork of it), so a changed pin file can't point the installer at an arbitrary host.
+var easyReleasePrefixes = []string{
+	"https://github.com/Eurikon/plugin-manager-usb-for-open-mpc/releases/download/",
+	"https://github.com/sd88me/plugin-manager-usb-for-open-mpc/releases/download/",
+}
+
+// easyReleasePrefix is the fork's, which is what the compiled-in pin uses.
+const easyReleasePrefix = "https://github.com/sd88me/plugin-manager-usb-for-open-mpc/releases/download/"
+
+func allowedEasyURL(url string) bool {
+	for _, prefix := range easyReleasePrefixes {
+		if strings.HasPrefix(url, prefix) {
+			return true
+		}
+	}
+	return false
+}
 
 var hex64 = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 func (p easyPin) valid() bool {
-	return p.Version != "" && strings.HasPrefix(p.URL, easyReleasePrefix) && !strings.ContainsAny(p.URL, " \t\r\n") && hex64.MatchString(p.SHA256)
+	return p.Version != "" && allowedEasyURL(p.URL) && !strings.ContainsAny(p.URL, " \t\r\n") && hex64.MatchString(p.SHA256)
 }
 
 func builtinEasyPin() easyPin {
@@ -118,6 +133,12 @@ func fetchEasyStickPin(pin easyPin) ([]byte, error) {
 // WriteEasyStick unpacks the zip onto out, which must be missing or empty (a drive's own housekeeping aside), the
 // same rule as BuildStick. Entries that would land outside out are refused.
 func WriteEasyStick(out string, data []byte) error {
+	return writeStickZip(out, data, "plugin manager", []string{"autorun/autorun.json", "autorun/autorun.check", "autorun/open.sh", ".mpc-manager-id"})
+}
+
+// writeStickZip is WriteEasyStick for any prebuilt stick: what names the stick in messages, need lists the files that
+// must exist once it is unpacked.
+func writeStickZip(out string, data []byte, what string, need []string) error {
 	if st, err := os.Stat(out); err == nil {
 		if !st.IsDir() {
 			return fmt.Errorf("%s already exists and is not a folder", out)
@@ -141,7 +162,7 @@ func WriteEasyStick(out string, data []byte) error {
 		name := path.Clean(f.Name)
 		if name == "." || strings.HasPrefix(name, "/") || name == ".." || strings.HasPrefix(name, "../") ||
 			strings.Contains(name, `\`) || strings.Contains(name, ":") {
-			return fmt.Errorf("unsafe path in the plugin manager zip: %q", f.Name)
+			return fmt.Errorf("unsafe path in the "+what+" zip: %q", f.Name)
 		}
 	}
 	if err := os.MkdirAll(out, 0755); err != nil {
@@ -174,9 +195,9 @@ func WriteEasyStick(out string, data []byte) error {
 			return err
 		}
 	}
-	for _, need := range []string{"autorun/autorun.json", "autorun/autorun.check", "autorun/open.sh", ".mpc-manager-id"} {
-		if _, err := os.Stat(filepath.Join(out, filepath.FromSlash(need))); err != nil {
-			return fmt.Errorf("the plugin manager zip is missing %s", need)
+	for _, n := range need {
+		if _, err := os.Stat(filepath.Join(out, filepath.FromSlash(n))); err != nil {
+			return fmt.Errorf("the %s zip is missing %s", what, n)
 		}
 	}
 	return nil

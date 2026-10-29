@@ -39,7 +39,8 @@ def layout_rows():
         out.append('readout box=0 w=90 h=36 cx=950 cy=%d label="" key=%sver tsize=34 tcolor=ececed talign=left tpad=0' % (t + 23, k))
         out.append('readout box=0 w=64 h=22 cx=1014 cy=%d label="" key=%sfrom tsize=22 tcolor=f0b44a talign=left tpad=0' % (t + 25, k))
         for st, img in (("install", "btn_install"), ("update", "btn_update"), ("installed", "btn_installed"), ("q_install", "btn_q_install"),
-                        ("q_update", "btn_q_update"), ("q_remove", "btn_q_remove"), ("disabled", "btn_disabled")):
+                        ("q_update", "btn_q_update"), ("q_remove", "btn_q_remove"), ("disabled", "btn_disabled"),
+                        ("register", "btn_register"), ("q_register", "btn_q_register")):
             b(1129, c, k + "act", img + ".svg", 150, 48, "%sstate:%s" % (k, st))
         b(1094, c, k + "reinstall", "btn_reinstall.svg", 76, 48, k + "state:menu")
         b(1172, c, k + "remove", "btn_remove.svg", 76, 48, k + "state:menu")

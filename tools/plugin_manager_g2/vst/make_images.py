@@ -105,6 +105,8 @@ def main():
     button("btn_q_update.svg", 196, 56, "UPDATE · QUEUED", "none", AMBER_TX, "clock", stroke="#b88426", dash=True, size=15)
     button("btn_q_remove.svg", 196, 56, "REMOVE · QUEUED", "none", AMBER_TX, "clock", stroke="#b88426", dash=True, size=15)
     button("btn_disabled.svg", 196, 56, "INSTALL", "#222326", "#5c5f65", "lock", stroke="#2e3034")
+    button("btn_register.svg", 196, 56, "REGISTER", AMBER, "#1a1205", "shield")
+    button("btn_q_register.svg", 196, 56, "REGISTER · QUEUED", "none", AMBER_TX, "clock", stroke="#b88426", dash=True, size=15)
     button("btn_reinstall.svg", 96, 56, "REINSTALL", "#26272b", INK, None, stroke="#3a3c41", size=14)
     button("btn_remove.svg", 96, 56, "REMOVE", "#2a1514", "#ff7a72", None, stroke="#6b2a26", size=14)
     svg("more.svg", 44, 56, "".join('<circle cx="22" cy="%d" r="2.6" fill="%s"/>' % (y, MUTED) for y in (21, 28, 35)))
