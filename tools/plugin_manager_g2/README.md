@@ -100,7 +100,7 @@ for new installs; updates always stay where the plugin already is.
    | `/nvme/Synths` (Live III) | `/nvme/local-plugins/` |
    | `/sdcard/Synths` (Force, Gen1 MPC) | `/sdcard/local-plugins/` |
    | `/storage/Synths` (MPC One / Key on Gen2) | `/storage/local-plugins/` |
-   | `/media/az01-internal/Synths` (the data partition, used when the internal drive is full) | `/media/az01-internal/local-plugins/` |
+   | `/media/az01-internal/Synths` | `/media/az01-internal/local-plugins/` |
 
    Create the `local-plugins` folder if it is not there. With SSH: `ssh root@<device-ip> mkdir -p /nvme/local-plugins`, then
    `scp <the zip> root@<device-ip>:/nvme/local-plugins/`. Without SSH, use the USB plugin manager stick instead: it has its own `local-plugins` folder on
