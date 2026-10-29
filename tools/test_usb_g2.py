@@ -163,7 +163,7 @@ class Device(Tmp):
         shim.chmod(0o755)
         # busybox df wraps a long device name onto its own line unless -P is given, which leaves the numbers one line down
         df = self.p / "bin" / "df"
-        df.write_text("#!/bin/sh\ncase \"$*\" in *P*) echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo '/dev/mapper/a-long-device-name 9000000 1000 8000000 1% /x' ;; *) echo 'Filesystem 1K-blocks Used Available Use% Mounted on'; echo '/dev/mapper/a-long-device-name'; echo '  9000000 1000 8000000 1% /x' ;; esac\n")
+        df.write_text("#!/bin/sh\ncase \"$*\" in *P*) echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo \"/dev/mapper/a-long-device-name 9000000 1000 ${STUB_DF_AVAIL:-8000000} 1% /x\" ;; *) echo 'Filesystem 1K-blocks Used Available Use% Mounted on'; echo '/dev/mapper/a-long-device-name'; echo \"  9000000 1000 ${STUB_DF_AVAIL:-8000000} 1% /x\" ;; esac\n")
         df.chmod(0o755)
         env = dict(os.environ, MPC_USB_TEST="1", MPC_G2_ARCH=arch, MPC_SETTINGS=str(settings), MPC_MOUNTS=str(mounts),
                    STUB_LOG=str(self.log), STUB_RC=str(rc), PATH=str(self.p / "bin") + os.pathsep + os.environ["PATH"])
@@ -339,6 +339,21 @@ class Device(Tmp):
         self.assertIn("would also add", result)
         self.assertNotIn("<Location>%s/Synths" % sd, after)
         self.assertEqual(self.ctl(), [])
+
+    def test_a_nearly_full_internal_drive_is_refused_with_the_figure_and_what_to_do(self):
+        # a tester's Force: /sdcard really had 17240 KB free, and the stick must say so plainly
+        self.mounts, self.locations = [], []
+        sd = self.drive("sdcard")
+        os.environ["STUB_DF_AVAIL"] = "17240"
+        try:
+            r, result = self.run_device(None, drives=[sd])
+        finally:
+            os.environ.pop("STUB_DF_AVAIL")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("17240 KB free", result)
+        self.assertIn("Free some space", result)
+        self.assertEqual(self.ctl(), [])
+        self.assertFalse(self.log.exists())
 
     def test_two_candidates_are_not_chosen_between(self):
         self.mounts, self.locations = [], []

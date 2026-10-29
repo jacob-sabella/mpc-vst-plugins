@@ -101,7 +101,7 @@ while read -r c; do
     [ -n "$why" ] || { r=$(mount_ok "$at") || why=$r; }
     if [ -z "$why" ]; then
         free=$(free_kb "$at")
-        [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free (${free:-unknown} KB)"
+        [ "${free:-0}" -ge 65536 ] || why="has too little free space (${free:-unknown} KB free; the plugin manager needs about 40 MB, and 64 MB is required). Free some space on this drive and try again"
     fi
     if [ -z "$why" ]; then
         key=$(stat -L -c '%d:%i' "$at" 2>/dev/null)
@@ -136,7 +136,7 @@ if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
         [ -n "$why" ] || { r=$(mount_ok "$drive") || why=$r; }
         if [ -z "$why" ]; then
             free=$(free_kb "$drive")
-            [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free (${free:-unknown} KB)"
+            [ "${free:-0}" -ge 65536 ] || why="has too little free space (${free:-unknown} KB free; the plugin manager needs about 40 MB, and 64 MB is required). Free some space on this drive and try again"
         fi
         if [ -z "$why" ]; then fn=$((fn + 1)); fb="$drive/Synths"; echo "Internal drive: $drive (usable; MPC lists no Synths folder on it)"; else echo "Internal drive: $drive $why"; fi
     done
@@ -157,10 +157,10 @@ if [ -n "${MPC_G2_DRY_RUN:-}" ]; then
     echo "Dry run: would install $rel into $target. Nothing was changed."; exit 0
 fi
 
-# the package is unpacked in RAM (/tmp), so check there is room (the plugin is ~330 MB unpacked)
+# the package is unpacked in RAM (/tmp), so check there is room (it is ~40 MB unpacked; 150 MB leaves a wide margin)
 if [ -z "${MPC_USB_TEST:-}" ]; then
     avail=$(free_kb "$work")
-    [ "${avail:-0}" -ge 600000 ] || fail "not enough free memory to unpack the package (${avail:-0} KB free, 600000 needed); restart the device and try again"
+    [ "${avail:-0}" -ge 150000 ] || fail "not enough free memory to unpack the package (${avail:-0} KB free, 150000 needed); restart the device and try again"
 fi
 mkdir -p "$work/pkg"
 unzip -q -o "$zip" -d "$work/pkg" || fail "could not unpack the package"
