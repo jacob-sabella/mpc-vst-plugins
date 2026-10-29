@@ -1943,6 +1943,15 @@ new one (trigger max 70 %); at 2.8 ms (over `TRIGGER_WARN_PCT`) it WARNs. `bench
 - `easystick.go` now accepts pin URLs under upstream's or the fork's release page only.
 - Device: the same code (his main + the G2 change) installed OpenMPC Plugin Manager G2 0.2.0 on a Live III through the option (see the 2026-10-29 entries above).
 
+## 2026-10-28: skin variants in one plugin — a skin binds at insert, `when=` hides widgets but never tabs (device: MPC Live II, MPC OS 3.9.1.2)
+
+From shipping three interfaces inside one plugin on two ports (MPC DJ FX 2 3.1.0/3.1.1, MPC Tape Echo 1.2.0), written up for port authors in `docs/SKIN_VARIANTS.md`:
+
+- **A skin binds when the instance is inserted.** MPC reads `Plugin Skins/TUI.json` and the Q-Link banks at that moment and keeps them in memory; there is no reload call and no notification, so a switch can only stage the *next* insert and the running instance keeps the old skin.
+- **`when=<param>:<option>` hides widgets, never tabs.** A throwaway page with three labels (one per option) showed exactly one, following a tap — device-verified. `pageData.tabs[]` has no visibility field, and a tab whose components are all hidden still shows in the bar (the union measured 14 tabs), so variants with different *navigation* need separate skin folders, not `when=`.
+- **Rewriting `TUI.json`/`Q-Links.json` under a live instance was safe in our tests, and that is all it is.** The instance kept running and the next insert picked up the new files, on the device and OS above; nothing documents it as an MPC guarantee, so keep the switch to those two small JSON files (`.tmp` + `rename()`) and never touch an image the running instance still samples.
+- `ui.txt` is the truth: a project or preset carrying an older value must not rewrite another interface. And `"defines": {"MODULE_SUBDIR": "\".\""}` is required, or `create()` gets an empty `dir` and the copy silently does nothing — that cost a device round trip on Tape Echo.
+
 ## 2026-10-29: poloq's Plugin Manager removed from the catalog (offline change)
 
 poloq agreed to remove `plugin-manager` (poloq-instruments/mpc-vst-manager) because it will not be worked on any more; the OpenMPC Plugin Manager G2 (`plugin-manager-g2`, a fork of it, Gen1 and Gen2) replaces it. Removed `catalog/plugins/plugin-manager.json` and its `catalog/added.json` line; the USB stick's default install id (`tools/usb_stick/make_stick.py`, `run.sh`) is now `plugin-manager-g2`. Older entries above that name `plugin-manager` describe what was true when they were run. Not run on a device: a stick built with the new default.
