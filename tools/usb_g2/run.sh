@@ -8,11 +8,21 @@
 #    MPC.settings (SynthContentLocations) that are Synths folders on a read-write, executable, lasting mount with room (a listed folder
 #    that is not there yet counts if its parent is). Two paths to one folder count once. It is chosen only when exactly one qualifies;
 #    otherwise nothing is installed and the result file says what was found, and what the device has. Nothing is guessed.
+#  - When MPC lists no internal Synths folder at all (a fresh Force lists only Akai's own content), the one internal drive (/sdcard, /nvme or
+#    /storage: its own mount, read-write, executable, lasting, with room) gets a Synths folder, which is added to MPC's list of plugin folders
+#    (MPC stopped, MPC.settings backed up first and checked after) so the plugin's skin shows. More than one such drive: nothing is installed.
 #  - Needs no network. Leaves <stick>/g2-install-result.txt. With MPC_G2_DRY_RUN=1 it only reports what it would do.
 usb=$1; work=$2
 log="$work/result.txt"
+stopped=0
+ctl() {   # stop | start MPC; a test run logs the call instead of touching MPC
+    if [ -n "${MPC_USB_TEST:-}" ]; then echo "$1" >> "$STUB_LOG.ctl"; return 0; fi
+    svc=acvs; systemctl cat acvs >/dev/null 2>&1 || { systemctl cat inmusic-mpc >/dev/null 2>&1 && svc=inmusic-mpc; }
+    systemctl "$1" "$svc"
+}
 finish() {
     r=$?
+    [ "$stopped" = 0 ] || ctl start   # MPC is started again even when the install failed
     cp "$log" "$usb/g2-install-result.txt" 2>/dev/null || true
     rm -rf "$work"
     exit "$r"
@@ -67,7 +77,14 @@ mount_ok() {   # the mount holding $1 is read-write, allows executables and keep
 registered() { grep -qF "<Location>$1</Location>" "$settings" || grep -qF "<Location>$1/</Location>" "$settings"; }
 internal() { for pre in ${MPC_G2_INTERNAL:-/media/az01-internal /sdcard /nvme /storage}; do case "$1" in "$pre"/*) return 0 ;; esac; done; return 1; }
 if [ -n "${MPC_G2_CANDIDATES:-}" ]; then list=$(printf '%s\n' $MPC_G2_CANDIDATES)
-else list=$(grep -o '<Location>[^<]*</Location>' "$settings" | sed 's/<[^>]*>//g' | while read -r l; do l=${l%/}; internal "$l" && echo "$l"; done)
+else
+    list=$(grep -o '<Location>[^<]*</Location>' "$settings" | sed 's/<[^>]*>//g' | while read -r l; do l=${l%/}; internal "$l" && echo "$l"; done)
+    while read -r l; do
+        l=${l%/}; [ -n "$l" ] || continue
+        internal "$l" || echo "Listed: $l is not on the internal drive, so it is not used"
+    done <<EOF
+$(grep -o '<Location>[^<]*</Location>' "$settings" | sed 's/<[^>]*>//g')
+EOF
 fi
 found=""; n=0; seen=" "
 while read -r c; do
@@ -100,9 +117,33 @@ if [ "$n" -lt 1 ]; then
     echo "--- what this device has (for support) ---"
     echo "plugin locations MPC lists:"; grep -o "<Location>[^<]*</Location>" "$settings" 2>/dev/null | sed 's/<[^>]*>//g; s/^/  /' || true
     echo "MPC.settings: $settings"
-    echo "mounts that look like internal storage:"; grep -E " /(sdcard|nvme|storage|data|media[^ ]*|content) " "$mounts" 2>/dev/null | cut -d' ' -f2-4 | sed 's/^/  /' || true
+    echo "mounts that look like internal storage:"; grep -E " /(sdcard|nvme|storage|data|synths|media[^ ]*|content) " "$mounts" 2>/dev/null | cut -d' ' -f2-4 | sed 's/^/  /' || true
     echo "folders: $(ls -d /sdcard/Synths /nvme/Synths /storage/Synths /media/*/Synths 2>/dev/null | tr '\n' ' ')"
     echo "--- end ---"
+fi
+is_mountpoint() { awk -v d="$1" '$2 == d {f = 1} END {exit !f}' "$mounts"; }
+register=0
+if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
+    # MPC lists no usable internal Synths folder. The conventional internal drive is the one place a plugin can go and still show its skin once
+    # it is listed, so: exactly one such drive, as a mount of its own (a stub folder on the root filesystem is not a drive), read-write,
+    # executable, lasting, with room.
+    fn=0; fb=""
+    for drive in ${MPC_G2_DRIVES:-/sdcard /nvme /storage}; do
+        why=""
+        [ -d "$drive" ] || why="is not there"
+        [ -n "$why" ] || is_mountpoint "$drive" || why="is not a drive of its own"
+        [ -n "$why" ] || { r=$(mount_ok "$drive") || why=$r; }
+        if [ -z "$why" ]; then
+            free=$(df -k "$drive" 2>/dev/null | awk 'NR==2 {print $4}')
+            [ "${free:-0}" -ge 65536 ] || why="has under 64 MB free"
+        fi
+        if [ -z "$why" ]; then fn=$((fn + 1)); fb="$drive/Synths"; echo "Internal drive: $drive (usable; MPC lists no Synths folder on it)"; else echo "Internal drive: $drive $why"; fi
+    done
+    if [ "$fn" -eq 1 ]; then
+        grep -q '</SynthContentLocations>' "$settings" || fail "MPC.settings has no list of plugin folders (SynthContentLocations) to add $fb to; not editing it"
+        found=$fb; n=1; register=1
+        echo "Will create $fb and add it to MPC's list of plugin folders"
+    fi
 fi
 [ "$n" -ge 1 ] || fail "no internal Synths folder qualifies on this device"
 [ "$n" -eq 1 ] || fail "more than one Synths folder qualifies; not choosing between them"
@@ -110,7 +151,10 @@ target=$found
 echo "Installing into: $target"
 
 # MPC_G2_DRY_RUN=1 stops here: everything above is checked and nothing is changed (a way to see what a device would do)
-if [ -n "${MPC_G2_DRY_RUN:-}" ]; then echo "Dry run: would install $rel into $target. Nothing was changed."; exit 0; fi
+if [ -n "${MPC_G2_DRY_RUN:-}" ]; then
+    [ "$register" = 0 ] || echo "Dry run: would also add $target to MPC's list of plugin folders in $settings (backed up first)."
+    echo "Dry run: would install $rel into $target. Nothing was changed."; exit 0
+fi
 
 # the package is unpacked in RAM (/tmp), so check there is room (the plugin is ~330 MB unpacked)
 if [ -z "${MPC_USB_TEST:-}" ]; then
@@ -124,8 +168,29 @@ set -- $(find "$work/pkg" -maxdepth 2 -name install.sh)
 pkgdir=$(dirname "$1")
 
 cp "$settings" "$usb/MPC.settings.backup" 2>/dev/null && echo "MPC.settings copied to the stick (MPC.settings.backup)"
-echo "Running the package's installer (it restarts MPC)"
-(cd "$pkgdir" && sh ./install.sh -y -t "$target")
+if [ "$register" = 1 ]; then
+    # MPC overwrites its settings when it stops, so it is stopped first; the package's installer then runs with -n (it leaves MPC
+    # stopped) and MPC is started again when this script ends, whatever happens.
+    ctl stop; stopped=1
+    if [ -z "${MPC_USB_TEST:-}" ]; then
+        i=0; while pidof MPC >/dev/null && [ "$i" -lt 30 ]; do sleep 1; i=$((i + 1)); done
+        ! pidof MPC >/dev/null || fail "MPC did not stop; nothing was changed"
+    fi
+    bak="$settings.bak-g2loc-$(date +%Y%m%d-%H%M%S)"
+    cp "$settings" "$bak" || fail "could not back up MPC.settings; nothing was changed"
+    awk -v loc="$target" '!d && sub(/<\/SynthContentLocations>/, "<Location>" loc "</Location></SynthContentLocations>") {d = 1} {print}' "$settings" > "$settings.new"
+    ok=1
+    [ "$(grep -c -F "<Location>$target</Location>" "$settings.new")" = 1 ] || ok=0
+    grep -q '<PROPERTIES' "$settings.new" && grep -q '</PROPERTIES>' "$settings.new" || ok=0
+    if [ "$ok" = 1 ] && command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import sys, xml.etree.ElementTree as E; E.parse(sys.argv[1])' "$settings.new" 2>/dev/null || ok=0
+    fi
+    if [ "$ok" = 1 ]; then cat "$settings.new" > "$settings" && echo "Added $target to MPC's plugin folders (MPC.settings backed up as $bak)"; fi
+    rm -f "$settings.new"
+    [ "$ok" = 1 ] || fail "the edited MPC.settings did not check out, so it was left as it was"
+fi
+echo "Running the package's installer$( [ "$register" = 1 ] || echo " (it restarts MPC)")"
+if [ "$register" = 1 ]; then (cd "$pkgdir" && sh ./install.sh -y -n -t "$target"); else (cd "$pkgdir" && sh ./install.sh -y -t "$target"); fi
 rc=$?
 if [ "$rc" -eq 0 ]; then echo "Done. OpenMPC Plugin Manager G2 is installed in $target."; else echo "The package's installer failed (status $rc); MPC was started again."; fi
 exit "$rc"

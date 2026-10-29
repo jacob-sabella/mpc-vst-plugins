@@ -145,10 +145,13 @@ class Device(Tmp):
             self.locations.append(str(folder))
         return str(folder)
 
-    def run_device(self, candidates, arch="armv7", rc=0, tamper=None, internal=None):
+    def run_device(self, candidates, arch="armv7", rc=0, tamper=None, internal=None, drives=None, settings_text=None):
         settings = self.p / "MPC.settings"
         settings.write_text("<PROPERTIES><VALUE name=\"SynthContentLocations\"><SynthContentLocations>%s</SynthContentLocations></VALUE></PROPERTIES>" %
                             "".join("<Location>%s</Location>" % l for l in self.locations))
+        if settings_text is not None:
+            settings.write_text(settings_text)
+        self.settings = settings
         mounts = self.p / "mounts"
         mounts.write_text("".join(self.mounts) + "/dev/root / ext4 ro 0 0\n")
         if tamper:
@@ -164,6 +167,8 @@ class Device(Tmp):
             env["MPC_G2_CANDIDATES"] = " ".join(candidates)
         if internal:
             env["MPC_G2_INTERNAL"] = " ".join(internal)
+        if drives is not None:
+            env["MPC_G2_DRIVES"] = " ".join(drives)
         r = subprocess.run(["sh", str(self.stick / "autorun/open.sh")], capture_output=True, text=True, env=env)
         result = (self.stick / "g2-install-result.txt").read_text() if (self.stick / "g2-install-result.txt").exists() else ""
         return r, result
@@ -229,7 +234,8 @@ class Device(Tmp):
         r, result = self.run_device(None, internal=[str(self.fs / "az01-internal")])
         self.assertEqual(r.returncode, 0, result)
         self.assertIn("ARGS: -y -t %s" % internal, self.log.read_text())
-        self.assertNotIn(card, result)
+        self.assertNotIn("Candidate: " + card, result)
+        self.assertIn("Listed: %s is not on the internal drive" % card, result)
 
     def test_two_paths_to_one_folder_count_once(self):
         self.mounts, self.locations = [], []
@@ -254,6 +260,81 @@ class Device(Tmp):
         self.assertIn("not kept across restarts", result)
         self.assertIn("is not a Synths folder", result)
         self.assertFalse(self.log.exists())
+
+    # a Force whose MPC lists only Akai's own content: the internal drive gets a Synths folder that is added to MPC's list
+    def drive(self, name, mount="rw,relatime", exists=True):
+        d = self.fs / name
+        if exists:
+            d.mkdir(parents=True, exist_ok=True)
+        self.mounts.append("/dev/fake %s ext4 %s 0 0\n" % (d, mount))
+        return str(d)
+
+    def ctl(self):
+        f = self.log.with_name(self.log.name + ".ctl")
+        return f.read_text().split() if f.exists() else []
+
+    def test_with_no_internal_folder_listed_the_one_internal_drive_is_used_and_listed(self):
+        self.mounts, self.locations = [], ["/media/SSD 512GB/Synths", "/usr/share/Akai/Content/Synths"]
+        sd = self.drive("sdcard")
+        r, result = self.run_device(None, drives=[sd, str(self.fs / "nvme")])
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("ARGS: -y -n -t %s/Synths" % sd, self.log.read_text())
+        self.assertIn("<Location>%s/Synths</Location>" % sd, self.settings.read_text())
+        self.assertIn("<Location>/media/SSD 512GB/Synths</Location>", self.settings.read_text())
+        self.assertEqual(self.ctl(), ["stop", "start"])
+        self.assertTrue(list(self.p.glob("MPC.settings.bak-g2loc-*")), "no backup beside the settings")
+
+    def test_a_stub_folder_on_the_root_filesystem_is_not_an_internal_drive(self):
+        self.mounts, self.locations = [], []
+        stub = self.drive("sdcard")
+        self.mounts.pop()   # not a mount of its own
+        r, result = self.run_device(None, drives=[stub])
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("is not a drive of its own", result)
+        self.assertEqual(self.ctl(), [])
+        self.assertFalse(self.log.exists())
+
+    def test_two_internal_drives_are_not_chosen_between(self):
+        self.mounts, self.locations = [], []
+        a, b = self.drive("sdcard"), self.drive("nvme")
+        r, result = self.run_device(None, drives=[a, b])
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(self.ctl(), [])
+        self.assertFalse(self.log.exists())
+
+    def test_settings_without_a_list_of_plugin_folders_are_not_edited(self):
+        self.mounts, self.locations = [], []
+        sd = self.drive("sdcard")
+        text = "<PROPERTIES><VALUE name=\"Other\">1</VALUE></PROPERTIES>"
+        r, result = self.run_device(None, drives=[sd], settings_text=text)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("no list of plugin folders", result)
+        self.assertEqual(self.settings.read_text(), text)
+        self.assertEqual(self.ctl(), [])
+
+    def test_mpc_is_started_again_when_the_packages_installer_fails_after_listing(self):
+        self.mounts, self.locations = [], []
+        sd = self.drive("sdcard")
+        r, result = self.run_device(None, drives=[sd], rc=3)
+        self.assertEqual(r.returncode, 3)
+        self.assertEqual(self.ctl(), ["stop", "start"])
+        self.assertIn("failed (status 3)", result)
+
+    def test_a_dry_run_changes_no_settings_and_does_not_stop_mpc(self):
+        self.mounts, self.locations = [], []
+        sd = self.drive("sdcard")
+        before = None
+        env_extra = {"MPC_G2_DRY_RUN": "1"}
+        os.environ.update(env_extra)
+        try:
+            r, result = self.run_device(None, drives=[sd])
+            after = self.settings.read_text()
+        finally:
+            os.environ.pop("MPC_G2_DRY_RUN")
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("would also add", result)
+        self.assertNotIn("<Location>%s/Synths" % sd, after)
+        self.assertEqual(self.ctl(), [])
 
     def test_two_candidates_are_not_chosen_between(self):
         self.mounts, self.locations = [], []
