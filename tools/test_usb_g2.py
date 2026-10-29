@@ -161,6 +161,10 @@ class Device(Tmp):
         shim.parent.mkdir(exist_ok=True)
         shim.write_text("#!/bin/sh\nexec %s -I -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[3]).extractall(sys.argv[5])' \"$@\"\n" % sys.executable)
         shim.chmod(0o755)
+        # busybox df wraps a long device name onto its own line unless -P is given, which leaves the numbers one line down
+        df = self.p / "bin" / "df"
+        df.write_text("#!/bin/sh\ncase \"$*\" in *P*) echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo '/dev/mapper/a-long-device-name 9000000 1000 8000000 1% /x' ;; *) echo 'Filesystem 1K-blocks Used Available Use% Mounted on'; echo '/dev/mapper/a-long-device-name'; echo '  9000000 1000 8000000 1% /x' ;; esac\n")
+        df.chmod(0o755)
         env = dict(os.environ, MPC_USB_TEST="1", MPC_G2_ARCH=arch, MPC_SETTINGS=str(settings), MPC_MOUNTS=str(mounts),
                    STUB_LOG=str(self.log), STUB_RC=str(rc), PATH=str(self.p / "bin") + os.pathsep + os.environ["PATH"])
         if candidates is not None:
