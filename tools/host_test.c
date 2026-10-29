@@ -130,6 +130,16 @@ static int find_param(const char *key) {
     return -1;
 }
 
+/* params.json "legacy": true -- a retired control kept for saved projects; the checks that pick "the first" knob, option list
+ * or whole number must not land on one. */
+static int is_legacy(int i) {
+#ifdef PLUG_LEGACY_COUNT
+    for (int k = 0; k < PLUG_LEGACY_COUNT; k++) if (PLUG_LEGACY[k] == i) return 1;
+#endif
+    (void)i;
+    return 0;
+}
+
 #if defined(HAS_SONG_POS) && HAS_SONG_POS
 /* poc/songpos: the engine reports its last song_pos() call as "ppq|bpm|playing|frames|calls". One call per block, with the
  * host's ppqPos and tempo and the play flag; ppq -1 and bpm 0 when the host gives no position. */
@@ -226,7 +236,7 @@ static void cc_tests(AEffect *a) {
 #endif
 #ifdef HAS_NRPN
     for (int i = 0; i < NPARAMS; i++) {
-        if (PARAMS[i].nopts || PARAMS[i].momentary || PARAMS[i].string_display || PARAMS[i].step_target >= 0 ||
+        if (is_legacy(i) || PARAMS[i].nopts || PARAMS[i].momentary || PARAMS[i].string_display || PARAMS[i].step_target >= 0 ||
             PARAMS[i].popup_of >= 0 || PARAMS[i].int_display || PARAMS[i].max <= PARAMS[i].min) continue;
         if (!keeps(a, i, 0.5f) || !keeps(a, i, 0.0f)) continue;
         cc(a, 99, i >> 7); cc(a, 98, i & 127); cc(a, 6, 64); cc(a, 38, 0);
@@ -421,6 +431,7 @@ int main(void) {
     int cont = -1, en = -1, pop = -1;
     for (int i = 0; i < NPARAMS; i++) {
         const param_t *p = &PARAMS[i];
+        if (is_legacy(i)) continue;
         if (cont < 0 && !p->nopts && !p->momentary && !p->string_display && p->step_target < 0 && p->max > p->min) cont = i;
         if (en < 0 && i > 0 && p->nopts > 2 && !p->momentary && p->popup_of < 0) en = i;   /* not parameter 0: the wrapper holds it for MPC's STOP toggle (param0_toggle_check) */
         if (pop < 0 && p->popup_of >= 0) pop = i;
@@ -473,7 +484,7 @@ int main(void) {
     }
     for (int i = 0; i < NPARAMS; i++) {   /* an integer with its own Q-Link rate: qlink_ticks events per step */
         const param_t *p = &PARAMS[i];
-        if (p->nopts || !p->int_display || p->qlink_ticks <= 1 || p->max - p->min < 2) continue;
+        if (is_legacy(i) || p->nopts || !p->int_display || p->qlink_ticks <= 1 || p->max - p->min < 2) continue;
         float range = p->max - p->min, tick = 0.1f / range;
         char d0[256]; a->setP(a, i, 0); a->d(a, 7, i, 0, d0, 0);
         for (int k = 0; k < p->qlink_ticks - 1; k++) a->setP(a, i, a->getP(a, i) + tick);
@@ -488,7 +499,7 @@ int main(void) {
     }
     for (int i = 0; i < NPARAMS; i++) {   /* a long whole-number list (a bank list): nudge_pct makes each Q-Link event and wheel click one step */
         const param_t *p = &PARAMS[i];
-        if (p->nopts || !p->int_display || p->nudge_pct <= 0 || p->max - p->min < 2) continue;
+        if (is_legacy(i) || p->nopts || !p->int_display || p->nudge_pct <= 0 || p->max - p->min < 2) continue;
         float range = p->max - p->min, rate[2] = {1.0f / 128, 0.01f};   /* a Q-Link event and a data wheel click, of the whole range */
         const char *who[2] = {"Q-Link events", "data wheel clicks"};
         for (int r = 0; r < 2; r++) {
@@ -516,7 +527,7 @@ int main(void) {
         break;
     }
     for (int i = 0; i < NPARAMS; i++)   /* the first whole-number param */
-        if (!PARAMS[i].nopts && PARAMS[i].int_display && PARAMS[i].qlink_ticks <= 1 && PARAMS[i].max - PARAMS[i].min >= 2) { step_tests(a, i, "int", (int)(PARAMS[i].max - PARAMS[i].min)); break; }
+        if (!is_legacy(i) && !PARAMS[i].nopts && PARAMS[i].int_display && PARAMS[i].qlink_ticks <= 1 && PARAMS[i].max - PARAMS[i].min >= 2) { step_tests(a, i, "int", (int)(PARAMS[i].max - PARAMS[i].min)); break; }
     if (pop >= 0) {
         int t = PARAMS[pop].popup_of, n = PARAMS[t].nopts;
         a->setP(a, pop, 1); CHECK(a->getP(a, pop) > 0.5f, "popup %s opens", PARAMS[pop].key);
