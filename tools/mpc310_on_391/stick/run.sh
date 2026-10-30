@@ -4,7 +4,8 @@
 #  2. Re-add installed addins (the Live III has no persistent /etc: their drop-in lives on /run).
 #  3. Install or update the MPC 3.10 kit in /data/mpc310 from the stick (checked against kit.sha256), first boot only.
 #  4. Run MPC 3.10 for this boot: a /run drop-in binds the kit over /usr/bin/MPC and /usr/share/Akai.
-#  5. Run each addin's own boot.sh (if it has one), then restart MPC once if it is not 3.10 yet.
+#  5. Run each addin's own boot.sh (if it has one), put the 16-pad drum patch back if it was installed (its own reapply),
+#     then restart MPC once if it is not 3.10 yet or not running the patched copy.
 # A file named disable-310 at the stick's root skips 3-5 (plain 3.9.1). Leaves <stick>/mpc310-result.txt.
 usb=$1; work=$2
 log="$work/result.txt"
@@ -62,10 +63,21 @@ else
             echo "Boot hook: $(basename "${d%/}")"
             sh "$d/boot.sh" || echo "warning: boot hook $(basename "${d%/}") failed"
         done
-        case "$(mpc_version)" in
-        3.10.*) echo "MPC is already 3.10" ;;
-        *) echo "Restarting MPC as 3.10"; systemctl restart acvs; sleep 8 ;;
-        esac
+        # the 16-pad drum patch (mpc-drum-pad-patch.sh install on this device): put its /run drop-in back
+        DP=/data/mpc-drumpad; drum=0
+        if [ -f "$DP/mpc-drum-pad-patch.sh" ]; then
+            sh "$DP/mpc-drum-pad-patch.sh" reapply || echo "warning: drum-pad reapply failed"
+            [ -f "$D/94-mpc-drumpad.conf" ] && drum=1
+        fi
+        p=$(pidof MPC || true)
+        if [ $drum = 1 ] && [ -n "$p" ] && [ "$(md5sum "/proc/$p/exe" | cut -d' ' -f1)" != "$(md5sum "$DP/MPC" | cut -d' ' -f1)" ]; then
+            echo "Restarting MPC with the drum-pad patch"; systemctl restart acvs; sleep 8
+        else
+            case "$(mpc_version)" in
+            3.10.*) echo "MPC is already 3.10" ;;
+            *) echo "Restarting MPC as 3.10"; systemctl restart acvs; sleep 8 ;;
+            esac
+        fi
         echo "MPC now: $(mpc_version), acvs $(systemctl is-active acvs)"
     else
         echo "error: no MPC 3.10 kit in $KIT and none on the stick"

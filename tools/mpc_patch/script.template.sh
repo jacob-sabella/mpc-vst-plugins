@@ -318,6 +318,7 @@ EOF
     echo "$G2_DATA" | grep -v '^[[:space:]]*$' | write_regions
     if [ "$(md5 "$F")" != "$G2_PATCHED" ]; then rm -f "$G2/MPC.new"; die "checksum mismatch after patching; nothing was changed"; fi
     chmod 755 "$G2/MPC.new"; mv "$G2/MPC.new" "$G2/MPC"; echo "$SRC_MD5" > "$G2/STOCK"
+    [ -f "$0" ] && cp "$0" "$G2/mpc-drum-pad-patch.sh.new" && mv "$G2/mpc-drum-pad-patch.sh.new" "$G2/mpc-drum-pad-patch.sh"   # a boot stick runs this copy's reapply
     echo "patched copy ready: $G2/MPC"
     g2_write_dropin || die "could not write $G2_DROPIN"
     g2_sysd daemon-reload; g2_sysd restart acvs
@@ -345,7 +346,7 @@ g2_cmd_uninstall() {
     if [ ! -f "$G2_DROPIN" ] && [ ! -f "$G2/MPC" ]; then echo "Already stock. Nothing to do."; exit 0; fi
     rm -f "$G2_DROPIN"; g2_sysd daemon-reload
     g2_sysd restart acvs
-    rm -f "$G2/MPC" "$G2/STOCK" "$G2/MPC.new"; rmdir "$G2" 2>/dev/null
+    rm -f "$G2/MPC" "$G2/STOCK" "$G2/MPC.new" "$G2/mpc-drum-pad-patch.sh"; rmdir "$G2" 2>/dev/null
     echo "restored: MPC runs the system's own program again (patched copy removed)"
     [ -n "$G2_TEST" ] || { sleep 6; pidof MPC >/dev/null && echo "MPC is running" || echo "WARNING: MPC is not running; check: systemctl status acvs"; }
 }

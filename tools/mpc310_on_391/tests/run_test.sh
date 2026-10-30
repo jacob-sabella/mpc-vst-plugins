@@ -29,5 +29,11 @@ rm -f /usb/disable-310 /run/mpc310-boot-done; echo tampered > /usb/mpc310-kit/MP
 sh /usb/autorun/open.sh || true
 grep -q "does not match kit.sha256" $r && [ "$(cat /data/mpc310/VERSION)" = "3.10.0.49 (test)" ] && ok "tampered kit refused, old kit kept" || no "tamper check"
 grep -q "BindReadOnlyPaths" /run/systemd/system/acvs.service.d/95-mpc310.conf && ok "and 3.10 still runs from the old kit" || no "fallback to old kit"
+# the 16-pad drum patch, installed earlier: the stick calls its reapply, then restarts MPC because the running MPC is not the patched copy
+mkdir -p /data/mpc-drumpad; echo patched > /data/mpc-drumpad/MPC
+printf "echo reapply >> /tmp/calls\nmkdir -p /run/systemd/system/acvs.service.d; : > /run/systemd/system/acvs.service.d/94-mpc-drumpad.conf\n" > /data/mpc-drumpad/mpc-drum-pad-patch.sh
+printf "#!/bin/sh\necho 1234\n" > /stub/pidof
+rm -f /run/mpc310-boot-done; : > /tmp/calls; sh /usb/autorun/open.sh || true
+grep -q "^reapply" /tmp/calls && ok "drum-pad reapply called" || no "drum-pad reapply"
 [ $fail = 0 ] && echo "ALL OK" || { echo FAILURES; cat $r; exit 1; }
 '
