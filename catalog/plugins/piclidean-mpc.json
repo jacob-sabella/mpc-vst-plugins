@@ -1,0 +1,19 @@
+{
+  "id": "piclidean-mpc",
+  "name": "πClideaN MPC",
+  "author": "Timo",
+  "repo": "timomacquis/piClideaN16-MPC",
+  "kind": "instrument",
+  "role": "midi",
+  "license": "MIT",
+  "summary": "Sixteen-lane hybrid MIDI sequencer with Euclidean patterns, per-step expression, scales, selective randomization and dual-LFO modulation.",
+  "style": "sequencer",
+  "tags": [
+    "midi",
+    "sequencer",
+    "euclidean",
+    "generative"
+  ],
+  "screenshot": "https://raw.githubusercontent.com/timomacquis/piClideaN16-MPC/7b6903dabe5b6d9aa98ea9ea6cbb0b0446fde4ea/docs/images/lane-activity-force-1.3.0.png",
+  "asset_pattern": "ClideaN-MPC-*-mpc-armv7.zip"
+}
