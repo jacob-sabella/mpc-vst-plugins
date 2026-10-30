@@ -350,7 +350,7 @@ class Device(Tmp):
         self.assertEqual(self.ctl(), [])
 
     def test_a_nearly_full_internal_drive_is_refused_with_the_figure_and_what_to_do(self):
-        # a tester's Force: /sdcard really had 17240 KB free, and the stick must say so plainly
+        # a Force's /sdcard (the system partition) really had 17240 KB free: the stick must say so plainly
         self.mounts, self.locations = [], []
         sd = self.drive("sdcard")
         os.environ["STUB_DF_SDCARD"] = "17240"
@@ -360,7 +360,7 @@ class Device(Tmp):
             os.environ.pop("STUB_DF_SDCARD")
         self.assertEqual(r.returncode, 1)
         self.assertIn("17240 KB free", result)
-        self.assertIn("Free some space", result)
+        self.assertIn("64 MB is required", result)
         self.assertEqual(self.ctl(), [])
         self.assertFalse(self.log.exists())
 
@@ -377,31 +377,38 @@ class Device(Tmp):
             os.environ.pop("STUB_DF_SDCARD")
         return sd, data, r, result
 
-    def test_a_full_model_drive_falls_back_to_the_internal_data_partition(self):
-        sd, data, r, result = self.run_tiers(sdcard_free="17240")
+    def test_the_user_space_is_tried_first_even_when_the_model_drive_is_usable(self):
+        sd, data, r, result = self.run_tiers()
         self.assertEqual(r.returncode, 0, result)
         self.assertIn("ARGS: -y -n -t %s/Synths" % data, self.log.read_text())
         self.assertIn("<Location>%s/Synths</Location>" % data, self.settings.read_text())
-        self.assertIn("trying the internal data partition", result)
+        self.assertNotIn("trying the model's own drive", result)
+        self.assertNotIn("<Location>%s/Synths</Location>" % sd, self.settings.read_text())
         self.assertEqual(self.ctl(), ["stop", "start"])
 
-    def test_the_data_partition_is_not_used_while_the_model_drive_is_usable(self):
-        sd, data, r, result = self.run_tiers()
+    def test_a_system_sd_with_little_room_is_not_needed_when_the_user_space_is_usable(self):
+        sd, data, r, result = self.run_tiers(sdcard_free="17240")
+        self.assertEqual(r.returncode, 0, result)
+        self.assertIn("ARGS: -y -n -t %s/Synths" % data, self.log.read_text())
+
+    def test_the_model_drive_is_used_when_there_is_no_user_space_drive(self):
+        sd, data, r, result = self.run_tiers(second=False)
         self.assertEqual(r.returncode, 0, result)
         self.assertIn("ARGS: -y -n -t %s/Synths" % sd, self.log.read_text())
-        self.assertNotIn("trying the internal data partition", result)
-        self.assertNotIn("<Location>%s/Synths</Location>" % data, self.settings.read_text())
+        self.assertIn("trying the model's own drive", result)
+        self.assertIn("/az01-internal is not there", result)
 
-    def test_two_usable_model_drives_refuse_even_when_the_data_partition_is_usable(self):
-        sd, data, r, result = self.run_tiers(first_extra=lambda t: [t.drive("nvme")])
+    def test_two_usable_model_drives_refuse_when_the_user_space_is_not_usable(self):
+        sd, data, r, result = self.run_tiers(second=False, first_extra=lambda t: [t.drive("nvme")])
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.ctl(), [])
         self.assertFalse(self.log.exists())
 
-    def test_the_data_partition_must_be_a_drive_of_its_own_too(self):
+    def test_the_user_space_must_be_a_drive_of_its_own_and_the_model_drive_must_have_room(self):
         sd, data, r, result = self.run_tiers(sdcard_free="17240", second=False)
         self.assertEqual(r.returncode, 1)
         self.assertIn("/az01-internal is not there", result)
+        self.assertIn("has too little free space (17240 KB free", result)
         self.assertFalse(self.log.exists())
 
     def test_the_report_scans_every_drive_without_model_names(self):
