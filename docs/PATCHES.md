@@ -52,7 +52,7 @@ A plugin install is additive (files plus one settings entry). A patch rewrites A
       "docs": "tools/mpc_patch/README.md",
       "script": {"url": "https://raw.githubusercontent.com/sd88me/mpc-vst-plugins/<commit>/tools/mpc_patch/mpc-drum-pad-patch.sh",
                  "sha256": "4b9a8b08ef00e17639e7976d243431bc216864939981a48d6dc5719f4a1425cb"},
-      "supports": {"mpc_md5": ["592eebc8e1ce0797dc8c98e7002143b8"], "os": "MPC OS 3.9.1.2", "arch": "armv7l"},
+      "supports": {"mpc_md5": ["592eebc8e1ce0797dc8c98e7002143b8"], "os": "MPC OS 3.9.1.2", "arch": "armv7l"},   (arch may list several, comma separated: "armv7l,aarch64")
       "modifies": ["/usr/bin/MPC"],
       "backup": "/sdcard/MPC-backup",
       "restarts_mpc": true,
