@@ -8,7 +8,7 @@
 #    MPC.settings (SynthContentLocations) that are Synths folders on a read-write, executable, lasting mount with room (a listed folder
 #    that is not there yet counts if its parent is). Two paths to one folder count once. It is chosen only when exactly one qualifies;
 #    otherwise nothing is installed and the result file says what was found, and what the device has. Nothing is guessed.
-#  - (Where no model drive can take it, the internal user data partition, /media/az01-internal, is used.)
+#  - (The internal user data partition, /media/az01-internal, is tried first; the model's own drive only when it cannot take the plugin.)
 #  - When MPC lists no internal Synths folder at all (a fresh Force lists only Akai's own content), the one internal drive (/sdcard, /nvme or
 #    /storage: its own mount, read-write, executable, lasting, with room) gets a Synths folder, which is added to MPC's list of plugin folders
 #    (MPC stopped, MPC.settings backed up first and checked after) so the plugin's skin shows. More than one such drive: nothing is installed.
@@ -179,14 +179,14 @@ try_drives() {
 if [ "$n" -lt 1 ] && [ -z "${MPC_G2_CANDIDATES:-}" ]; then
     # MPC lists no usable internal Synths folder. The conventional internal drive is the one place a plugin can go and still show its skin once
     # it is listed, so: exactly one such drive, as a mount of its own (a stub folder on the root filesystem is not a drive), read-write,
-    # executable, lasting, with room. The model's own plugin drive comes first (a Force or Live /sdcard, Gen2 /nvme or /storage). Only when
-    # none of those is usable does the internal user data partition (/media/az01-internal, where an MPC One keeps its plugins) count. A Force's
-    # /sdcard is the system partition and is meant to hold little free space, so it often cannot take a plugin and /media/az01-internal does;
-    # where both are usable the first tier wins and the second is not even looked at.
-    try_drives ${MPC_G2_DRIVES:-/sdcard /nvme /storage}
+    # executable, lasting, with room. The internal user data partition comes first (/media/az01-internal, the user space, where an MPC One keeps
+    # its plugins). Only when it is not usable does the model's own drive count (a Force or Live /sdcard, Gen2 /nvme or /storage). A Force's
+    # /sdcard is the system partition and is meant to hold little free space; where both are usable the first tier wins and the second is not
+    # even looked at.
+    try_drives ${MPC_G2_DRIVES2:-/media/az01-internal}
     if [ "$fn" -eq 0 ]; then
-        echo "No model drive is usable; trying the internal data partition"
-        try_drives ${MPC_G2_DRIVES2:-/media/az01-internal}
+        echo "The internal user space is not usable; trying the model's own drive"
+        try_drives ${MPC_G2_DRIVES:-/sdcard /nvme /storage}
     fi
     if [ "$fn" -eq 1 ]; then
         grep -q '</SynthContentLocations>' "$settings" || fail "MPC.settings has no list of plugin folders (SynthContentLocations) to add $fb to; not editing it"
