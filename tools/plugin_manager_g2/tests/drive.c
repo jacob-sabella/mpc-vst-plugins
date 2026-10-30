@@ -106,6 +106,19 @@ int main(int argc, char **argv) {
     press("apply"); printf("first prompt: confirm=%s pick=%s |%s|\n", get("confirm"), get("confirm_pick"), get("confirm_dest"));
     e->destroy(m); return 0;
   }
+  if (argc > 1 && !strcmp(argv[1], "keys")) {   /* MPC delivers one tap on a drawn key as two presses with no release (Live III, 2026-10-30) */
+    press("search_btn");
+    set("k_A", "1"); set("k_A", "1");                                     /* one tap, delivered twice: one letter */
+    printf("one tap on A delivered twice: |%s|\n", get("q_txt"));
+    usleep((tapms() + 80) * 1000); set("k_A", "1"); set("k_A", "1");       /* a second tap on the same key, a finger later: a second letter */
+    printf("then A again: |%s|\n", get("q_txt"));
+    set("k_B", "1"); set("k_B", "1"); set("k_L", "1"); set("k_L", "1");    /* other keys right away are not held back, each tap still once */
+    printf("then B, L quickly: |%s|\n", get("q_txt"));
+    usleep((tapms() + 80) * 1000); set("k_L", "1"); set("k_L", "1");
+    printf("then L again after a pause: |%s|\n", get("q_txt"));
+    set("k_back", "1"); set("k_back", "1"); printf("one BACK tap delivered twice: |%s|\n", get("q_txt"));
+    e->destroy(m); return 0;
+  }
   if (argc > 1 && !strcmp(argv[1], "status")) { cards(); e->destroy(m); return 0; }   /* what the manager says on its own (the last apply) */
   if (argc > 2 && !strcmp(argv[1], "one")) {   /* queue the effect called argv[2] and APPLY: the prepare step's verdict */
     if (argc > 4) set("tab", argv[4]);

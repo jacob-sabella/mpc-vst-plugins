@@ -14,6 +14,7 @@
 #endif
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -129,6 +130,7 @@ typedef struct {
     int inpos;
     double bpm;
     volatile int holdFrames[NPARAMS];  /* momentary params: frames left before reporting back to 0 (hold_ms) */
+    long long press_ms[NPARAMS];       /* momentary params: when the last press that was acted on arrived (CLOCK_MONOTONIC ms), see set_param_now */
     volatile char changed[NPARAMS];  /* params the plugin changed itself (step_of on an option), to report */
     float last_pos[NPARAMS]; /* stepped params: the last position the host asked for, in steps (-1 = none yet) */
     float qacc[NPARAMS];     /* qlink_ticks: turn events counted toward the next step (see setParameter) */
@@ -244,6 +246,17 @@ static void set_param_now(AEffect *e, int32_t i, float n) {
     if (i < 0 || i >= NPARAMS) return;
     const param_t *p = &PARAMS[i];
     int nudge = 0;
+    /* One tap on a drawn button reaches us as two presses 30 to 140 ms apart, with no release between (the finger going down and lifting;
+     * Live III, 2026-10-30, docs/NOTES.md), so "Program >" stepped two programs and a keyboard key typed twice. A momentary param ignores a
+     * second press within debounce_ms of the last one acted on (vst.json "debounce_ms", default 250, 0 = off). The wrapper's own spring-back
+     * to 0 and the host's echo of it are releases, not presses, and pass. */
+    if (p->momentary && p->debounce_ms > 0 && n > 0.5f) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        long long now = ts.tv_sec * 1000LL + ts.tv_nsec / 1000000;
+        if (w->press_ms[i] && now - w->press_ms[i] < p->debounce_ms) return;
+        w->press_ms[i] = now;
+    }
     if (popup_set(w->open, i, n)) {
         if (w->open[i] > 0.5f) popup_close_others(w->open, w->holdFrames, i);   /* one list at a time */
         return;

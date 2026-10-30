@@ -9,6 +9,7 @@
 #include <string.h>
 #include <math.h>
 #include <pthread.h>
+#include <unistd.h>
 #include "params.h"
 typedef struct AEffect AEffect;
 typedef intptr_t (*cb)(AEffect*,int32_t,int32_t,intptr_t,void*,float);
@@ -183,6 +184,31 @@ static void transport_tests(void) {
 }
 #endif
 
+#if defined(HAS_TRANSPORT) && HAS_TRANSPORT
+/* poc/steptest: a momentary param ignores a second press within debounce_ms (default 250), because MPC delivers one tap on a drawn button
+ * twice, 30-140 ms apart (Live III, 2026-10-30). "push" counts the presses that reach the engine; "push_raw" has "debounce_ms": 0. */
+static void debounce_tests(void) {
+    int push = find_param("push"), raw = find_param("push_raw"), cnt = find_param("push_count");
+    if (push < 0 || raw < 0 || cnt < 0) { printf("warn no push/push_raw/push_count params: debounce not tested\n"); return; }
+    AEffect *c = VSTPluginMain(host);
+    char d[64];
+    c->setP(c, push, 1.0f); c->setP(c, push, 1.0f);       /* one tap, delivered twice */
+    c->setP(c, raw, 1.0f); c->setP(c, raw, 1.0f);         /* debounce_ms 0: both count */
+    d[0] = 0; c->d(c, 7, cnt, 0, d, 0);
+    CHECK(!strcmp(d, "1 2"), "debounce: a tap delivered twice counts once, with debounce_ms 0 twice -> \"%s\" (want \"1 2\")", d);
+    usleep(300 * 1000);                                    /* a finger later: a second tap */
+    c->setP(c, push, 1.0f); c->setP(c, push, 1.0f);
+    d[0] = 0; c->d(c, 7, cnt, 0, d, 0);
+    CHECK(!strcmp(d, "2 2"), "debounce: the next tap 300 ms later counts -> \"%s\" (want \"2 2\")", d);
+    c->setP(c, push, 0.0f); c->setP(c, push, 0.0f);       /* releases (the spring-back, the host's echo) are never held back */
+    usleep(300 * 1000);
+    c->setP(c, push, 1.0f);
+    d[0] = 0; c->d(c, 7, cnt, 0, d, 0);
+    CHECK(!strcmp(d, "3 2"), "debounce: releases do not count, the next press does -> \"%s\" (want \"3 2\")", d);
+    c->d(c, 1, 0, 0, 0, 0);
+}
+#endif
+
 /* A step_of button pair on an option list (e.g. a synth model picked with prev/next): steps by index, wraps both ways, and
  * tells the host the new value (audioMasterAutomate) on the next block. */
 static void step_of_option_tests(AEffect *a) {
@@ -349,6 +375,20 @@ static int toggle_skip(int i) {
 #else
 #define TOGGLE_TEXT 64
 #endif
+/* A plugin that loads something in the background at start-up (the plugin manager's catalog) changes its readouts when that finishes, which
+ * would look like the toggle's doing. Wait, up to about 8 s, until two snapshots of every readout 0.4 s apart are the same. */
+static void settle_readouts(AEffect *c) {
+    static char a[NPARAMS][TOGGLE_TEXT], b[NPARAMS][TOGGLE_TEXT];
+    for (int round = 0; round < 20; round++) {
+        for (int i = 0; i < NPARAMS; i++) { a[i][0] = 0; c->d(c, 7, i, 0, a[i], 0); }
+        usleep(400 * 1000);
+        run(c, 2);
+        int same = 1;
+        for (int i = 0; i < NPARAMS; i++) { b[i][0] = 0; c->d(c, 7, i, 0, b[i], 0); if (strcmp(a[i], b[i])) same = 0; }
+        if (same) return;
+    }
+}
+
 static void param0_toggle_check(void) {
     if (NPARAMS < 2) return;
     AEffect *c = VSTPluginMain(host);
@@ -362,6 +402,7 @@ static void param0_toggle_check(void) {
         moved++;
     }
     run(c, 2);
+    settle_readouts(c);
     for (int i = 0; i < NPARAMS; i++) { before[i][0] = 0; c->d(c, 7, i, 0, before[i], 0); }
     float old = c->getP(c, 0);
     c->setP(c, 0, old < 0.5f ? 1.0f : 0.0f);   /* what JUCE's prepareToPlay does */
@@ -573,6 +614,7 @@ int main(void) {
 #endif
 #if defined(HAS_TRANSPORT) && HAS_TRANSPORT
     transport_tests();
+    debounce_tests();
 #endif
 #if defined(HAS_SONG_POS) && HAS_SONG_POS
     song_pos_tests();
