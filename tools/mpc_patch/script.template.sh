@@ -1,5 +1,5 @@
 #!/bin/sh
-# mpc-drum-pad-patch.sh: give selected plugins MPC's 16-pad DRUM layout on the Force / MPC (MPC OS 3.9.1.2), and on Gen2
+# mpc-drum-pad-patch.sh: give selected plugins MPC's 16-pad DRUM layout on the Force (MPC OS 3.9.1.2), on Gen1 MPCs (3.10.0), and on Gen2
 # devices such as the MPC Live III (aarch64; MPC OS 3.9.1 and the 3.10.0 kit; see "Gen2" below).
 #
 # ADVANCED AND OPT-IN. This changes Akai's factory program, /usr/bin/MPC, on the device. Read the warnings below.
@@ -24,11 +24,12 @@
 #
 # WARNINGS
 #  - It modifies the factory MPC OS. Do it only if you are comfortable with that; you use it at your own risk.
-#  - It works ONLY on MPC OS 3.9.1.2, checked by the exact checksum of /usr/bin/MPC. On anything else it refuses.
+#  - It works ONLY on the builds it knows (Force / MPC OS 3.9.1.2, Gen1 MPC OS 3.10.0, Gen2 3.9.1 and 3.10.0), checked by the exact
+#    checksum of /usr/bin/MPC. On anything else it refuses.
 #  - A firmware update replaces /usr/bin/MPC and removes the patch. Run this again after updating (it will refuse until
 #    this project supports the new build).
 #  - Installing stops and restarts MPC: save your project first.
-#  - Before changing anything it saves the full original MPC (112 MB) and the original bytes to /sdcard/MPC-backup, and
+#  - Before changing anything it saves the full original MPC (about 115 MB) and the original bytes to /sdcard/MPC-backup, and
 #    checks the result by checksum; if that fails it restores the original by itself. `uninstall` restores them.
 #  - Nothing of Akai's is in this file: only the changed bytes and checksums. The device uses its own copy.
 #  - Not affiliated with Akai Professional / inMusic.
@@ -47,6 +48,18 @@ MNT=/tmp/mpc-patch-root
 TEST=${MPC_PATCH_TEST:-}                      # set to a file path to run against a copy of the binary (no mounts, no restart)
 
 PATCH_DATA='@@PATCH@@'
+
+# MPC Gen1 (Live / One / X / Key; armv7 like the Force, same in-place method): MPC OS 3.10.0. Picked by the checksum of the MPC found.
+STOCK_G1_310=@@STOCK_G1_310@@
+PATCHED_G1_310=@@PATCHED_G1_310@@
+PATCH_DATA_G1_310='@@PATCH_G1_310@@'
+pick_build() {   # $1 = md5 of /usr/bin/MPC: switch the globals to the Gen1 build when it is one (else the Force's 3.9.1.2 stay)
+    case "$1" in
+        "$STOCK_G1_310"|"$PATCHED_G1_310") STOCK_MD5=$STOCK_G1_310; PATCHED_MD5=$PATCHED_G1_310; PATCH_DATA=$PATCH_DATA_G1_310
+            FULL=$BK/MPC-3.10.0-Gen1.orig; BUILD="Gen1 MPC OS 3.10.0" ;;
+    esac
+}
+BUILD="MPC OS 3.9.1.2 (Force, Gen1 3.9.1.2)"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 md5() { md5sum "$1" | cut -d' ' -f1; }
@@ -120,14 +133,14 @@ cmd_status() {
     need_root_device
     was_mounted=0; [ -z "$TEST" ] && mountpoint -q "$MNT" 2>/dev/null && was_mounted=1
     open_root
-    cur=$(md5 "$F"); st=$(state_of "$cur")
+    cur=$(md5 "$F"); pick_build "$cur"; st=$(state_of "$cur")
     [ -z "$TEST" ] && [ $was_mounted = 0 ] && umount "$MNT" 2>/dev/null   # status looked only: do not leave the bind mount of / behind
     echo "MPC checksum: $cur"
     case "$st" in
-        stock) echo "State: stock MPC OS 3.9.1.2, not patched." ;;
+        stock) echo "State: stock $BUILD, not patched." ;;
         patched) echo "State: PATCHED (plugin names: @@NAMES@@)." ;;
         old-patch) echo "State: patched with an earlier version of this patch (Machinedrum-only, or an older name table); 'install' upgrades it." ;;
-        *) echo "State: not MPC OS 3.9.1.2, or a build this script did not make. 'install' will not touch it."
+        *) echo "State: not a build this script supports (MPC OS 3.9.1.2 on a Force; Gen1 MPC OS 3.10.0), or a build this script did not make. 'install' will not touch it."
            [ -f "$FULL" ] && echo "       A full backup from an earlier install is in $BK: 'uninstall' can put the stock program back from it (it checks the backup first)." ;;
     esac
     [ -f "$FULL" ] && echo "Backup: $FULL present" || echo "Backup: no full backup in $BK"
@@ -140,19 +153,19 @@ cmd_status() {
 
 cmd_install() {   # $1: --confirmed skips the typed question; a caller that shows the same warnings and asks for the word itself passes it
     need_root_device; open_root
-    cur=$(md5 "$F"); st=$(state_of "$cur")
+    cur=$(md5 "$F"); pick_build "$cur"; st=$(state_of "$cur")
     case "$st" in
         patched) echo "Already patched. Nothing to do."; exit 0 ;;
         stock|old-patch) ;;
-        *) die "this is not MPC OS 3.9.1.2 (checksum $cur). Refusing; nothing was changed." ;;
+        *) die "this is not a supported MPC OS build (checksum $cur). Refusing; nothing was changed." ;;
     esac
     cat <<EOF
 
- This modifies the FACTORY MPC OS (/usr/bin/MPC) on this device, for MPC OS 3.9.1.2 only.
+ This modifies the FACTORY MPC OS (/usr/bin/MPC) on this device, for $BUILD only.
   - Plugins that get the 16-pad drum layout: @@NAMES@@
   - MPC will be stopped and started again: save your project first.
   - A firmware update replaces the file and removes the patch.
-  - The full original MPC (112 MB) and the original bytes are saved to $BK first.
+  - The full original MPC (about 115 MB) and the original bytes are saved to $BK first.
   - Undo any time with: sh $0 uninstall
   - You use this at your own risk. It is not an Akai product.
 EOF
@@ -195,7 +208,7 @@ restore_unknown() {
     [ -f "$FULL" ] || die "MPC is neither stock nor a build this script made (checksum $cur) and there is no full backup in $BK; not touching it"
     echo "MPC is a build this script does not know (checksum $cur). Checking the saved full backup..."
     [ "$(md5 "$FULL")" = "$STOCK_MD5" ] || die "the full backup $FULL is not the stock MPC (checksum $(md5 "$FULL")); not touching anything"
-    echo "The backup is the stock MPC OS 3.9.1.2 program. It will replace /usr/bin/MPC (112 MB), then MPC restarts: save your project first."
+    echo "The backup is the stock MPC program. It will replace /usr/bin/MPC (about 115 MB), then MPC restarts: save your project first."
     if [ "${2:-}" != --confirmed ]; then
         printf "Type RESTORE to continue: "
         if [ -n "$TEST" ]; then read -r a; else read -r a < /dev/tty 2>/dev/null || read -r a; fi
@@ -210,7 +223,7 @@ restore_unknown() {
 
 cmd_uninstall() {   # $1: --confirmed skips the typed question that a restore from the full backup asks
     need_root_device; open_root
-    cur=$(md5 "$F"); st=$(state_of "$cur")
+    cur=$(md5 "$F"); pick_build "$cur"; st=$(state_of "$cur")
     case "$st" in
         stock) echo "Already stock. Nothing to do."; exit 0 ;;
         patched|old-patch) ;;

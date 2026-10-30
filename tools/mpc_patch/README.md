@@ -4,7 +4,7 @@
 
 | Patch | What it does | Script | Details |
 |---|---|---|---|
-| 16-pad drum layout (this page) | Lets MPC treat selected plugins as drum instruments with 16 lit pads. Force / MPC Gen1: patches `/usr/bin/MPC` (MPC OS 3.9.1.2 only). Gen2 (Live III): runs a patched copy of MPC (OS 3.9.1 or the 3.10.0 kit), see "Gen2" below. | `mpc-drum-pad-patch.sh` | below |
+| 16-pad drum layout (this page) | Lets MPC treat selected plugins as drum instruments with 16 lit pads. Force (MPC OS 3.9.1.2) and Gen1 MPCs (MPC OS 3.10.0): patches `/usr/bin/MPC`. Gen2 (Live III): runs a patched copy of MPC (OS 3.9.1 or the 3.10.0 kit), see "Gen2" below. | `mpc-drum-pad-patch.sh` | below |
 | Drive exec | Makes one folder on a `noexec` drive (a Force's SSD) executable so plugins load from it. No MPC restart. Untested on a device by this project. | `drive_exec/drive-exec-patch.sh` | [`drive_exec/README.md`](drive_exec/README.md) |
 | Button remap (hwremap) | An `LD_PRELOAD` shim that turns a button into other buttons, a pad or a touchscreen tap. Restarts MPC. Tried on one Force; not with MidiLoop / MockbaMod. | `hwremap/hwremap-patch.sh` | [`hwremap/README.md`](hwremap/README.md) |
 
@@ -26,9 +26,12 @@ The same script handles Gen2, chosen by `uname -m`. The root filesystem there is
 - `/run` is cleared by a reboot, so MPC is stock again after one. `sh mpc-drum-pad-patch.sh reapply` puts the drop-in back (`--restart` also restarts MPC); the mpc310-on-391 stick calls it at boot (`install` leaves a copy of the script in `/data/mpc-drumpad` for that). `uninstall` removes the copy and the drop-in and restarts MPC. No 112 MB backup is needed: the system's own MPC is never written.
 - Same patch as the Force (name table, six `8` to `16` pad counts, 16-pad colour loop) at aarch64 addresses; sources and tests in `gen2/` (`make_patch_gen2.py`, `test_gen2_emu.py` under Unicorn, and `test_script_gen2.sh` for the script in BusyBox).
 
+## Gen1 (MPC Live / One / X / Key, armv7), MPC OS 3.10.0
+Same in-place method as the Force (armv7, writable root, backup to `/sdcard/MPC-backup`); the script picks the build by the checksum of `/usr/bin/MPC`. Supported: stock Gen1 3.10.0 (`b6cc8e7a398bdf6c3fd8f7176eecd3ee`). The three changes sit at the Force patch's code shapes, found by matching; sources and tests in `gen1/` (`make_patch_gen1.py`, `test_gen1_emu.py` under Unicorn, `test_script_gen1.sh` in BusyBox). **Not tried on a Gen1 device yet.** Gen1 3.9.1 is not covered: its `MPC` is UPX-packed, so there are no fixed bytes to patch.
+
 ## Read this first
 - It **modifies Akai's factory MPC program (`/usr/bin/MPC`)**. Use it at your own risk; it is not an Akai product.
-- On the Force / MPC Gen1 it works **only on MPC OS 3.9.1.2**, and on Gen2 only on MPC OS 3.9.1 and 3.10.0 (both checked by the exact checksum); it refuses anything else. A firmware update replaces the file and removes the patch; run the script again afterwards (it refuses until this project supports the new build).
+- It works **only on** the Force's MPC OS 3.9.1.2, Gen1 MPC OS 3.10.0, and Gen2 MPC OS 3.9.1 and 3.10.0 (both checked by the exact checksum); it refuses anything else. A firmware update replaces the file and removes the patch; run the script again afterwards (it refuses until this project supports the new build).
 - Installing **stops and restarts MPC**: save your project first.
 - You need root SSH access to the device. The script only runs on the device.
 - Nothing of Akai's is in the script: only the changed bytes and checksums.
