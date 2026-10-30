@@ -111,6 +111,11 @@ for the pattern). This applies to every future port, not just ones that hit the 
       `gen_vst.py` writes `params.lock` next to `vst.json` on the first build: commit it. A build fails when an existing key
       changes index; `GEN_VST_RELOCK=1` accepts the break (before a first release only). Rebuild the skin after any change.
 - [ ] Options: an index; nudges step one option (the wrapper does this). Triggers: `"momentary": true`, which springs back.
+- [ ] MPC delivers one tap on a drawn button as **two presses 30 to 140 ms apart** with no release between (the finger going down and lifting;
+      measured on a Live III, MPC OS 3.9.1, 2026-10-30: `set k_A=1` twice per tap). A momentary param therefore ignores a second press within
+      `"debounce_ms"` of the last one it acted on (default 250; the wrapper does this, so "Program >" steps one program and a drawn keyboard types
+      one letter). Set `"debounce_ms": 0` on a trigger that must fire as fast as it is tapped. Releases (the spring-back to 0, the host's echo of it)
+      are never held back. Plugins built before this change double-fire: rebuild and re-release them with the current wrapper.
 - [ ] A control can't be disabled from the host side: the wrapper has no `effGetParameterProperties`, and JUCE's VST2
       host has no "disabled" flag anyway. Hide it in the skin (`when=`). A control with nothing to do (a pager with one
       page, "next" at the end of a list) must do nothing in the engine: clamp and ignore it there. `setParameter` still

@@ -100,6 +100,8 @@ typedef struct {
     int confirm;                  /* the restart prompt is open (the second APPLY); only shown while ready */
     long long theme_t, tap_t;     /* ms of the last accepted theme press / button press (monotonic) */
     char tap_key[32];             /* the button of that press */
+    long long kb_t;               /* ms of the last accepted keyboard key (monotonic) */
+    char kb_key[16];              /* that key */
     int theme, theme_applied, theme_can;   /* 0 dark, 1 light: the one wanted, the one in `Plugin Skins` at MPC's start, and whether the folder holds both skins */
     char own[300];                /* this plugin's own folder (its skins live there) */
     int tsel, reprompt;           /* which usable location new installs go to; CHANGE re-prepares and reopens the prompt */
@@ -2091,6 +2093,13 @@ static void mgr_set_param(void *inst, const char *key, const char *val) {
     if (v >= 0.5 && is_button(key)) {   /* the same button twice within 250 ms is one tap */
         if (!strcmp(key, m->tap_key) && repeated(&m->tap_t, 250)) { pthread_mutex_unlock(&m->mu); return; }
         if (strcmp(key, m->tap_key)) { snprintf(m->tap_key, sizeof m->tap_key, "%s", key); repeated(&m->tap_t, 0); }
+    }
+    if (v >= 0.5 && m->kb && !strncmp(key, "k_", 2)) {
+        /* MPC sends a tap on a drawn key twice, with no release: Live III trace 2026-10-30, "set k_A=1" twice per tap, 30 to 140 ms apart
+         * (the finger going down and lifting), so a letter was typed twice. The same key again within 250 ms of the accepted press is the same
+         * tap, as for the buttons; only the same key counts, so typing different keys quickly is not affected. */
+        if (!strcmp(key + 2, m->kb_key) && repeated(&m->kb_t, 250)) { pthread_mutex_unlock(&m->mu); return; }
+        if (strcmp(key + 2, m->kb_key)) { snprintf(m->kb_key, sizeof m->kb_key, "%s", key + 2); repeated(&m->kb_t, 0); }
     }
     if (m->confirm && !m->reprompt && (!m->ready || busy)) m->confirm = 0;   /* nothing left to restart for */
     if (v >= 0.5 && !strcmp(key, "theme_btn") && m->theme_can && !m->confirm && !busy) {   /* the next apply carries it */

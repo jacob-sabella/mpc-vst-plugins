@@ -149,6 +149,9 @@ mkdir -p "$T/Faily dir"; echo old > "$T/Faily dir/old"; cp "$T/Faily dir/old" /t
 sh /tmp/openmpc-pm/apply.sh
 /tmp/drive_addins status > /tmp/safe-status.out
 grep -qF "Last apply: 0 done, 1 failed and put back as they were. Faily: disk full" /tmp/safe-status.out
+# a tap on a drawn key arrives twice with no release (a Live III): one letter, not two; the same key a finger later is a second letter
+rm -rf /tmp/openmpc-pm; /tmp/drive_addins keys > /tmp/safe-keys.out
+grep -qF "one tap on A delivered twice: |A|" /tmp/safe-keys.out && grep -qF "then A again: |AA|" /tmp/safe-keys.out && grep -qF "then B, L quickly: |AABL|" /tmp/safe-keys.out && grep -qF "then L again after a pause: |AABLL|" /tmp/safe-keys.out && grep -qF "one BACK tap delivered twice: |AABL|" /tmp/safe-keys.out || { cat /tmp/safe-keys.out; echo "FAIL: a key tapped once typed more or fewer letters"; exit 1; }
 /tmp/drive_addins one Newlib > /tmp/safe-glibc.out
 grep -qF "Newlib: needs glibc 9.99 or newer, this MPC has" /tmp/safe-glibc.out
 rm -rf /tmp/openmpc-pm; PM_GLIBC=2.39 /tmp/drive_addins one Oldos > /tmp/safe-os.out
