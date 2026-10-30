@@ -28,7 +28,7 @@ The same script handles Gen2, chosen by `uname -m`. The root filesystem there is
 
 ## Read this first
 - It **modifies Akai's factory MPC program (`/usr/bin/MPC`)**. Use it at your own risk; it is not an Akai product.
-- It works **only on MPC OS 3.9.1.2** (checked by the exact checksum) and refuses anything else. A firmware update replaces the file and removes the patch; run the script again afterwards (it refuses until this project supports the new build).
+- On the Force / MPC Gen1 it works **only on MPC OS 3.9.1.2**, and on Gen2 only on MPC OS 3.9.1 and 3.10.0 (both checked by the exact checksum); it refuses anything else. A firmware update replaces the file and removes the patch; run the script again afterwards (it refuses until this project supports the new build).
 - Installing **stops and restarts MPC**: save your project first.
 - You need root SSH access to the device. The script only runs on the device.
 - Nothing of Akai's is in the script: only the changed bytes and checksums.
