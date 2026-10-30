@@ -1422,14 +1422,21 @@ static void do_refresh(mgr_t *m) {
     int got = fetch(m, CATALOG_URL, &s) == 0;
     pkg_t *tmp = calloc(MAXPKG, sizeof *tmp);
     list_t l = {tmp, 0};
-    if (!got || !tmp || !jobject(s.buf, top_member, &l)) {
+    int offline = 0;   /* 1: the catalog could not be reached, 2: it could not be read */
+    if (!tmp) {
         free(s.buf);
-        free(tmp);
         pthread_mutex_lock(&m->mu);
         m->online = 0;
-        say_locked(m, ERR, got ? "The plugin catalog could not be read" : "Can't reach the plugin catalog");
+        say_locked(m, ERR, "Out of memory");
         pthread_mutex_unlock(&m->mu);
         return;
+    }
+    if (!got || !jobject(s.buf, top_member, &l)) {
+        /* No catalog: carry on with what is on the MPC (zips in local-plugins, installed plugins, folders to register), so a zip can be
+         * installed with no network. Nothing from a half-read catalog is kept. */
+        offline = got ? 2 : 1;
+        l.n = 0;
+        memset(tmp, 0, MAXPKG * sizeof *tmp);
     }
     free(s.buf);
     probe_device(m->dev);
@@ -1460,13 +1467,20 @@ static void do_refresh(mgr_t *m) {
     m->npkg = l.n;
     m->sel = m->menu = -1;
     for (int i = 0; i < l.n; i++) if (!strcmp(tmp[i].id, sel)) m->sel = i;
-    m->online = m->loaded = 1;
+    m->online = !offline;
+    m->loaded = 1;
     m->disk_used = used;
     snprintf(m->disk_free, sizeof m->disk_free, "%s", freebuf);
     if (m->dev->problem[0]) {
         char w[160];
         problem_words(m->dev, w, sizeof w);
         say_locked(m, ERR, "Installing is turned off: %s (reasons in " WORK "/device.txt)", w);
+    }
+    else if (offline) {
+        int local = 0;
+        for (int i = 0; i < m->npkg; i++) local += !strncmp(m->pkg[i].id, "local-", 6);
+        say_locked(m, WARN, "%s: showing the zips in local-plugins (%d) and what is installed. Check the MPC's network to browse the catalog.",
+                   offline == 2 ? "The plugin catalog could not be read" : "Can't reach the plugin catalog", local);
     }
     else { m->sticky = 0; m->rev++; }
     show_result(m, m->pkg, m->npkg);
@@ -2218,7 +2232,8 @@ static int mgr_get_param(void *inst, const char *key, char *b, int n) {
     else if (!strcmp(key, "empty_txt")) {
         int addins = 0;
         for (int i = 0; i < m->npkg; i++) addins += is_addin(&m->pkg[i]) && m->pkg[i].url[0];
-        snprintf(b, n, "%s", m->tab == 2 ? "Everything is up to date" : m->tab == 1 ? "No catalog plugins installed yet"
+        snprintf(b, n, "%s", !m->online ? "Offline, and no zips in local-plugins yet"
+                             : m->tab == 2 ? "Everything is up to date" : m->tab == 1 ? "No catalog plugins installed yet"
                              : m->kindf == 3 && !addins ? "No addins in the catalog yet" : "Everything here is already installed");
     }
     else if (!strcmp(key, "nav_prev")) snprintf(b, n, "%d", d < 0 && m->page > 0);
