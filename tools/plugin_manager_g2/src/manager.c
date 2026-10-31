@@ -1253,7 +1253,8 @@ static int hist_load(const device_t *d, hist_t *h, int *bad) {
     hist_path(d, p, sizeof p);
     if (!(s = slurp(p, 256 << 10))) return 0;
     if (strncmp(s, "{\"schema\": 1,", 13)) { *bad = 1; free(s); return 0; }
-    for (char *l = strtok(s, "\n"); l && n < HIST_MAX; l = strtok(NULL, "\n")) {
+    char *sv = NULL;   /* strtok_r: MPC runs more than one instance (each with a worker); strtok's hidden state is shared */
+    for (char *l = strtok_r(s, "\n", &sv); l && n < HIST_MAX; l = strtok_r(NULL, "\n", &sv)) {
         hist_t x = {{0}, {0}, 0, 0};
         char inst[8] = "";
         if (sscanf(l, "{\"id\": \"%47[^\"]\", \"version\": \"%23[^\"]\", \"installed\": %7[a-z], \"time\": %ld", x.id, x.ver, inst, &x.t) < 4) continue;
@@ -1389,11 +1390,17 @@ static int prune_backups(const device_t *d) {
 
 /* The result of the last apply (apply.sh's per-item lines "id|ok|" or "id|fail|reason"), shown once after MPC is back. */
 static void show_result(mgr_t *m, const pkg_t *pkg, int n) {
-    char *s = slurp(WORK "/result", 8192);
-    if (!s) return;
+    /* MPC creates the plugin more than once (it opens it twice), and each instance refreshes: claim the file by renaming it, so exactly
+     * one instance reads and reports it (two parsing it at once with strtok showed "2 failed" and garbage on a Live III, 2026-10-31) */
+    char mine[96];
+    snprintf(mine, sizeof mine, WORK "/result.%ld.%p", (long)getpid(), (void *)m);
+    if (rename(WORK "/result", mine)) return;
+    char *s = slurp(mine, 8192);
+    if (!s) { unlink(mine); return; }
     int ok = 0, bad = 0;
     char first[300] = "";
-    for (char *l = strtok(s, "\n"); l; l = strtok(NULL, "\n")) {
+    char *sv = NULL;
+    for (char *l = strtok_r(s, "\n", &sv); l; l = strtok_r(NULL, "\n", &sv)) {
         char *a = strchr(l, '|'), *b = a ? strchr(a + 1, '|') : NULL;
         if (!b) continue;
         *a = *b = 0;
@@ -1411,7 +1418,7 @@ static void show_result(mgr_t *m, const pkg_t *pkg, int n) {
         }
     }
     free(s);
-    rename(WORK "/result", WORK "/result.seen");
+    rename(mine, WORK "/result.seen");
     if (!ok && !bad) return;
     if (ok) prune_backups(m->dev);
     if (bad) say_locked(m, ERR, "Last apply: %d done, %d failed and put back as they were. %s", ok, bad, first);
