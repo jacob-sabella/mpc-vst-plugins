@@ -112,6 +112,7 @@ int main(int argc, char **argv) {
     set("kind", "1"); press("r1_act"); press("apply");
     for (int i = 0; i < 60 && strcmp(get("apply_state"), "3") && strcmp(get("apply_state"), "4"); i++) sleep(1);
     press("apply"); printf("prompt: |%s|\n", get("confirm_dest"));
+    press("confirm_go"); usleep(300000);   /* a test build only writes apply.sh (dry run): the tests read it */
     e->destroy(m); return 0;
   }
   if (argc > 1 && !strcmp(argv[1], "pickshow")) {   /* a fresh start: which place does the restart prompt name first? */

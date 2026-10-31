@@ -1681,6 +1681,24 @@ static void prepare(mgr_t *m, pkg_t *q) {
             else if (is_addin(p)) snprintf(target, sizeof target, "%s/%s", m->dev->addins, p->id);
             else snprintf(target, sizeof target, "%s", p->queued == Q_REMOVE ? p->synths
                           : p->synths[0] && good_target(p->synths) ? p->synths : dest(m));
+            if (!is_addin(p) && p->queued == Q_INSTALL && !p->synths[0]) {
+                /* installed before by something that left no mpc-plugin.json (older installers): the catalog name and the entry's name differ,
+                 * so it did not read as installed. An entry already pointing into a folder of this package's name is that install: update it in
+                 * place instead of making a second copy on the picked drive (Force, 2026-10-31: AW Ambience in /sdcard and on the SSD) */
+                char f0[200] = "";
+                manifest_str(p->dir, "folder", f0, sizeof f0);
+                const char *bn = strrchr(f0, '/') ? strrchr(f0, '/') + 1 : f0;
+                for (int k = 0; bn[0] && k < m->dev->nent; k++) {
+                    char fd[320], *sl;
+                    snprintf(fd, sizeof fd, "%s", m->dev->ent[k].file);
+                    if (!(sl = strrchr(fd, '/'))) continue;
+                    *sl = 0;   /* the plugin folder */
+                    char *b2 = strrchr(fd, '/');
+                    if (!b2 || strcmp(b2 + 1, bn) || !is_dir(fd)) continue;
+                    *b2 = 0;   /* its Synths folder */
+                    if (good_target(fd)) { snprintf(target, sizeof target, "%s", fd); break; }
+                }
+            }
             const char *synths = target;
             char fo[200] = "", dirp[560] = "";   /* the folder the installer writes (the package's "folder"), snapshotted for a rollback */
             if (is_addin(p)) snprintf(dirp, sizeof dirp, "%s", target);
