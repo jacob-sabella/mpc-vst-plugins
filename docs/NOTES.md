@@ -2043,3 +2043,15 @@ Fixes (offline-tested; not yet on a device): the manager's keys get the same 250
 - **Device (Live III, 3.10.0 kit):** `uninstall` removed the `94-` drop-in and MPC came back on the stock 3.10.0 (md5 `15a664f6...`); `install --confirmed` then ran the patched copy again (md5 `b6a49a4f...`, `acvs` active). Still not run on a device: the Gen2 3.9.1 patch and a real stick boot calling `reapply`.
 - **Gen1 3.10.0 (`MPC-3.10.0-Gen1-update.img`, rootfs `MPC` md5 `b6cc8e7a398bdf6c3fd8f7176eecd3ee`, armv7):** all three Force-patch sites are in it, found by their instruction shapes (Force offsets in brackets): the `DrumSynth:Multi` helper at `0x28584e0` (`0x2494954`), the colour loop at `0x2858740` (`0x2494bb4`), and six `movne r1,#8` after `bl 0x2858478; cmp r0,#0; moveq r1,#0x80` at `0x1193600, 0x1194100, 0x11942c0, 0x11954bc, 0x1195550, 0x11958a8`. The cave is the zero tail of the R+X segment's last page (`0x6c7c730`-`0x6c7d000`; the patch uses 241 bytes). Tests: Unicorn (8 names match, others fall through, 16 pad colours) and the script in BusyBox on the real stock binary. **Not run on a Gen1 device.**
 - **Gen1 3.9.1 is not covered:** the `MPC` in `MPC-3.9.1-Gen1-update.img` is UPX-packed (static, no section headers, md5 `250368c6a337970028b2a5ce96308d15`), so a byte patch has no fixed code to hit; it would need unpacking and repacking, which this repo does not ship.
+
+## 2026-10-31: Plugin Manager G2: zip checks never ran on devices (BusyBox unzip has no -Z); a successful apply could show "N failed" (offline + Live III device)
+
+- **Zip checks (offline, fixed):** before installing, the manager refuses a package with unsafe names (absolute, `..`, backslash) or more
+  than 600 MB unpacked. Both checks used `unzip -Z1` / `unzip -Zt`. BusyBox's `unzip` (the one on the MPC) has no `-Z`: it printed its usage
+  to the log (`unzip: invalid option -- 'Z'`, seen on a Live III) and the pipeline read nothing, so **every zip passed both checks unread**
+  (0.2.x). The catalog's sha256 check still applied to downloads. Now they read `unzip -l` (the same columns in BusyBox and Info-ZIP), count
+  BusyBox's `removing leading '/'` / `'../'` warning as an unsafe name (it strips those from what it lists), and refuse a zip that cannot be
+  listed. Checked under both unzips with a good zip and with `../`, absolute, mid-path `..`, backslash and >600 MB zips.
+- **"Last apply: 1 done, 2 failed" + garbage after a successful uninstall (Live III, device):** the result file held one `ok` line. MPC
+  creates the plugin more than once and each instance refreshes; two instances parsing the file with `strtok` at the same moment corrupt
+  each other. `show_result` now claims the file by renaming it (one instance reports it) and result/history parsing use `strtok_r`.
