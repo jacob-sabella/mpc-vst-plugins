@@ -1535,12 +1535,18 @@ static int manifest_lists(const char *dir, const char *key, const char *needle, 
 }
 
 /* The zip before anything is unpacked: no absolute or ".." names, no backslashes, and a sane unpacked size (WORK is RAM). */
+/* "unzip -l" (BusyBox and Info-ZIP agree on it; BusyBox has no -Z, so the old -Z1/-Zt checks passed every zip unread on a device):
+ * entries sit between the first and second dashed line, "<length> <date> <time> <name>". BusyBox strips a leading "/" or "../" from
+ * names (and says "removing leading" on stderr), so that message counts as an unsafe name too. Fails closed: no listing, no install. */
 static const char *inspect_zip(const char *zip) {
-    char cmd[700];
-    snprintf(cmd, sizeof cmd, "! unzip -Z1 '%s' | grep -Eq '(^/|(^|/)\\.\\.(/|$)|\\\\)'", zip);
-    if (sh(cmd)) return "has unsafe file names in its zip";
-    snprintf(cmd, sizeof cmd, "unzip -Zt '%s' | awk '{ exit ($3 + 0 > 600000000) }'", zip);
-    if (sh(cmd)) return "is more than 600 MB unpacked";
+    char cmd[900];
+    snprintf(cmd, sizeof cmd, "unzip -l '%s' > " WORK "/zl.txt 2>&1", zip);
+    if (sh(cmd)) return "could not be read as a zip";
+    if (sh("! grep -q 'removing leading' " WORK "/zl.txt && awk '/^ *-+/ {s++; next} s == 1 && NF >= 4 {n = $0; "
+           "sub(/^ *[0-9]+ +[^ ]+ +[^ ]+ +/, \"\", n); if (n ~ /^\\/|(^|\\/)\\.\\.(\\/|$)|\\\\/) bad = 1} END {exit bad}' " WORK "/zl.txt"))
+        return "has unsafe file names in its zip";
+    if (sh("awk '/^ *-+/ {s++; next} s == 1 && NF >= 4 {t += $1} END {exit t > 600000000}' " WORK "/zl.txt"))
+        return "is more than 600 MB unpacked";
     return NULL;
 }
 
