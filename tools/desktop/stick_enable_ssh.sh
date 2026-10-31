@@ -83,7 +83,7 @@ fi
 if [ $writable = 1 ]; then
     echo "root is writable: installing $([ "$MODE" = key ] && echo "the key" || echo "a password") persistently"
     if [ "$MODE" = key ]; then
-        install -d -m 700 /root/.ssh
+        mkdir -p /root/.ssh && chmod 700 /root/.ssh   # no `install` applet in the Force busybox (set -e killed the script here)
         grep -qxF "$KEY" /root/.ssh/authorized_keys 2>/dev/null || echo "$KEY" >> /root/.ssh/authorized_keys
         chmod 600 /root/.ssh/authorized_keys
     else
@@ -105,7 +105,8 @@ if [ $writable = 1 ]; then
         [ -f "$d/sshd.service" ] && ln -sf "$d/sshd.service" /etc/systemd/system/multi-user.target.wants/sshd.service 2>/dev/null && break
     done
     systemctl daemon-reload 2>/dev/null || true
-    systemctl start sshd 2>/dev/null || systemctl restart sshd 2>/dev/null || /usr/sbin/sshd 2>/dev/null || true
+    # restart, not start: an sshd that is already up (a stock Force starts one) would keep its old config and refuse the new setup
+    systemctl restart sshd 2>/dev/null || systemctl start sshd 2>/dev/null || /usr/sbin/sshd 2>/dev/null || true
     sync
     [ $was_ro = 0 ] || mount -o remount,ro / 2>/dev/null || echo "warning: / is still writable; it is read-only again after a reboot" >&2
     echo "done: $([ "$MODE" = key ] && echo "the key is installed" || echo "the password is set") and sshd starts at boot"
