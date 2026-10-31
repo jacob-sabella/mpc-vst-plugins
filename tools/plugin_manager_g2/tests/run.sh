@@ -87,6 +87,22 @@ printf "x /sdcard ext4 rw,relatime 0 0\n" > /tmp/pm-mounts   # the card is gone
 rm -rf /tmp/openmpc-pm; /tmp/drive_addins pickshow > /tmp/pickgone.out
 grep -qF "/sdcard/Synths" /tmp/openmpc-pm/apply.sh && ! grep -qF "/media/CARD" /tmp/openmpc-pm/apply.sh || { cat /tmp/pickgone.out; exit 1; }
 grep -qx "/media/CARD/Synths" /media/az01-internal/.openmpcpm-target
+# the same choice from the storage readout (a drive menu; the usable Synths folders)
+rm -rf /media /sdcard /nvme /synths /data /tmp/openmpc-pm /tmp/pm-mounts; mkdir -p /media
+sh tests/devices/two-targets.sh
+/tmp/drive_addins drives > /tmp/drives-old.out
+grep -qF "readout: |Internal" /tmp/drives-old.out && grep -qF "|CARD  ·  " /tmp/drives-old.out
+grep -qF "after pick: open=0 readout: |CARD" /tmp/drives-old.out
+grep -qF "prompt: |Install to: /media/CARD/Synths  (2 of 2)|" /tmp/drives-old.out || { cat /tmp/drives-old.out; exit 1; }
+# an install of a plugin already on the MPC from an older installer (no mpc-plugin.json, an entry under another name) is an update in
+# place: it stays in /sdcard/Synths even with the card picked (Force, 2026-10-31: AW Ambience got a second copy on the SSD)
+rm -rf /media /sdcard /nvme /synths /data /tmp/openmpc-pm /tmp/pm-mounts; mkdir -p /media
+sh tests/devices/two-targets.sh
+mkdir -p "/sdcard/Synths/acme - VST - Linky"; echo so > "/sdcard/Synths/acme - VST - Linky/linky.so"
+sed -i "s|<KNOWNPLUGINS/>|<KNOWNPLUGINS><PLUGIN name=\"Linky old\" descriptiveName=\"Linky old\" format=\"VST\" category=\"Synth\" manufacturer=\"acme\" version=\"1.0\" file=\"/sdcard/Synths/acme - VST - Linky/linky.so\" uid=\"4c6e6b79\" isInstrument=\"1\" fileTime=\"0\" infoUpdateTime=\"0\" numInputs=\"0\" numOutputs=\"2\" isShell=\"0\"/></KNOWNPLUGINS>|" /media/az01-internal/Settings/MPC/MPC.settings
+/tmp/drive_addins drives > /tmp/drives-upd.out
+grep -qF "after pick: open=0 readout: |CARD" /tmp/drives-upd.out
+grep -F "Linky" /tmp/openmpc-pm/apply.sh | grep -qF -- "-t '"'"'/sdcard/Synths'"'"'" || { grep -F install.sh /tmp/openmpc-pm/apply.sh; exit 1; }
 echo "pick OK"
 fi # pick
 if want theme; then

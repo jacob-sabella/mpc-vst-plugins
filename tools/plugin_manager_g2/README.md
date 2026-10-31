@@ -40,7 +40,8 @@ the project's development**: the catalog, its release rules and the official way
   **APPLY**, which shows what will happen and where, then restarts MPC once.
 - Updates stay where the plugin already lives. New installs go to the first **usable** content location, internal storage first. When more than one
   is usable (the user drive and an SSD or card, say) the restart prompt shows where and has a **CHANGE** button; **the place you confirm is remembered**
-  as the default for new installs (it is forgotten for a session only if that drive is not there, and returns when it is).
+  as the default for new installs (it is forgotten for a session only if that drive is not there, and returns when it is). The storage readout at the
+  top right then names the drive (`CARD · 12.0 GB ▾`); tap it for an **INSTALL TO** menu of the usable places with their free space (0.2.5).
 - Addins (the catalog's `addin` kind) are supported as well as plugins.
 
 **Safe by design**
@@ -83,7 +84,8 @@ Once it is listed in the catalog it should also install by id (`plugin-manager-g
 
 **Choose where plugins go.** When more than one place can take plugins (the user drive and an SSD or card, say), the restart prompt names the
 folder the new ones will go to, with a **CHANGE** button that steps through the usable places. The place you confirm is remembered as the default
-for new installs; updates always stay where the plugin already is.
+for new installs; updates always stay where the plugin already is. You can also pick it before you queue anything: tap the storage readout at the top right
+(it shows the drive's name and a ▾ when there is a choice) and choose from **INSTALL TO**.
 
 ![The restart prompt on a Force: "Install to: /media/662522/Synths (2 of 2)" with a CHANGE button](docs/screenshots/manager-install-location.png)
 

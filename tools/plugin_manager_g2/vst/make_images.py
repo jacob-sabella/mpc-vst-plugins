@@ -146,6 +146,8 @@ def main():
         svg("menu_hit_%d.svg" % (w - 14), w - 14, 46, '<rect width="%d" height="46" fill="#000" fill-opacity="0"/>' % (w - 14))
     menu("menu_kind.svg", 230, "SHOW", ("All", "Instruments", "Effects", "Addins"))
     menu("menu_sort.svg", 298, "SORT BY", ("Last updated", "Newest", "Most downloaded", "Name (A\u2013Z)"))
+    menu("menu_drive.svg", 298, "INSTALL TO", ("", "", "", ""))   # the drive menu: the names and free space are live text
+    svg("disk_hit.svg", 216, 40, '<rect width="216" height="40" fill="#000" fill-opacity="0"/>')   # the storage readout opens the drive menu
     svg("menu_bd.svg", 1280, 628, '<rect width="1280" height="628" fill="#000" fill-opacity="0"/>')
     # banners and empty states
     svg("banner.svg", 636, 36, '<rect x="0.5" y="0.5" width="635" height="35" rx="8" fill="#2a1514" stroke="#6b2a26"/>'

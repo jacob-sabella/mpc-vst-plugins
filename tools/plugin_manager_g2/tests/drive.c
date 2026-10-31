@@ -100,6 +100,21 @@ int main(int argc, char **argv) {
     press("confirm_go");   /* the confirmed place is remembered */
     e->destroy(m); return 0;
   }
+  if (argc > 1 && !strcmp(argv[1], "drives")) {   /* the storage readout opens a menu of drives; a pick is the install target */
+    char before[128];
+    snprintf(before, sizeof before, "%s", get("disk_txt"));
+    printf("readout: |%s|\n", before);
+    press("disk_btn");
+    printf("menu: open=%s hl=%s |%s|%s|%s|\n", get("drv_open"), get("drv_hl"), get("drv1_txt"), get("drv2_txt"), get("drv3_txt"));
+    press("drv_pick2");
+    for (int i = 0; i < 60 && !strcmp(get("disk_txt"), before); i++) usleep(200000);   /* the pick refreshes */
+    printf("after pick: open=%s readout: |%s|\n", get("drv_open"), get("disk_txt"));
+    set("kind", "1"); press("r1_act"); press("apply");
+    for (int i = 0; i < 60 && strcmp(get("apply_state"), "3") && strcmp(get("apply_state"), "4"); i++) sleep(1);
+    press("apply"); printf("prompt: |%s|\n", get("confirm_dest"));
+    press("confirm_go"); usleep(300000);   /* a test build only writes apply.sh (dry run): the tests read it */
+    e->destroy(m); return 0;
+  }
   if (argc > 1 && !strcmp(argv[1], "pickshow")) {   /* a fresh start: which place does the restart prompt name first? */
     set("kind", "1"); press("r1_act"); press("apply");
     for (int i = 0; i < 60 && strcmp(get("apply_state"), "3") && strcmp(get("apply_state"), "4"); i++) sleep(1);
