@@ -678,6 +678,7 @@ typedef struct { char id[48], version[24], folder[256]; int removable; } addin_t
 struct device {
     char settings[200], base[200], state[220], arch[32], target[200], problem[24], keys[160], via[48];
     char loc[8][200];
+    char uname[8][32];     /* their names in the drive menu: "Internal" or the drive's label (/media/<label>) */
     char usable[8][200];   /* the usable locations (bad_target() says nothing against them), internal drive first; the first is the default */
     int nusable;
     char addins[64];   /* ADDINS_DIR when its parent is a writable folder, else "" (no addin can be installed) */
@@ -857,8 +858,12 @@ static void theme_save(const mgr_t *m) {   /* tmp, then rename */
 }
 
 /* where a new install goes: the location picked on the restart prompt, else the first usable one */
+/* the places a new install can go (the usable Synths folders) and their names in the drive menu */
+static int ntargets(const mgr_t *m) { return m->dev->nusable; }
+static const char *target_at(const mgr_t *m, int k) { return m->dev->usable[k]; }
+static const char *target_name(const mgr_t *m, int k) { return m->dev->uname[k]; }
 static const char *dest(const mgr_t *m) {
-    return m->dev->nusable ? m->dev->usable[m->tsel % m->dev->nusable] : m->dev->target;
+    return ntargets(m) ? target_at(m, m->tsel % ntargets(m)) : m->dev->target;
 }
 
 /* The install location confirmed last time (a restart prompt, usually after CHANGE) is the default for new installs from now on: saved in
@@ -872,8 +877,8 @@ static void target_init(mgr_t *m) {
     if (!fp) return;
     if (fgets(b, sizeof b, fp)) b[strcspn(b, "\r\n")] = 0;
     fclose(fp);
-    for (int k = 0; b[0] && k < m->dev->nusable; k++)
-        if (!strcmp(m->dev->usable[k], b)) m->tsel = k;
+    for (int k = 0; b[0] && k < ntargets(m); k++)
+        if (!strcmp(target_at(m, k), b)) m->tsel = k;
 }
 
 static void target_save(const mgr_t *m) {   /* tmp, then rename */
@@ -980,7 +985,11 @@ static void probe_device(device_t *d) {
             for (size_t l = strlen(u); l > 1 && u[l - 1] == '/'; ) u[--l] = 0;   /* a trailing "/" is the same folder */
             int dup = 0;
             for (int k = 0; k < d->nusable; k++) if (!strcmp(d->usable[k], u)) dup = 1;
-            if (!dup && d->nusable < 8) snprintf(d->usable[d->nusable++], sizeof d->usable[0], "%s", u);
+            if (!dup && d->nusable < 8) {
+                const char *lab = !strncmp(u, "/media/", 7) && !internal ? u + 7 : NULL;
+                snprintf(d->uname[d->nusable], sizeof d->uname[0], "%.*s", lab ? (int)strcspn(lab, "/") : 8, lab ? lab : "Internal");
+                snprintf(d->usable[d->nusable++], sizeof d->usable[0], "%s", u);
+            }
         }
     if (d->nusable) snprintf(d->target, sizeof d->target, "%s", d->usable[0]);
     if (d->target[0]) snprintf(d->via, sizeof d->via, "SynthContentLocations");
@@ -2124,8 +2133,8 @@ static void mgr_set_param(void *inst, const char *key, const char *val) {
         return;
     }
     if (m->confirm) {   /* the restart prompt takes every tap until it is answered */
-        if (v >= 0.5 && !strcmp(key, "target_next") && m->dev->nusable > 1 && m->ready && !busy) {
-            m->tsel = (m->tsel + 1) % m->dev->nusable;   /* the apply script names the target: prepare again (the downloads are cached) */
+        if (v >= 0.5 && !strcmp(key, "target_next") && ntargets(m) > 1 && m->ready && !busy) {
+            m->tsel = (m->tsel + 1) % ntargets(m);   /* the apply script names the target: prepare again (the downloads are cached) */
             m->ready = 0;
             m->reprompt = 1;
             post(m, J_PREPARE);
@@ -2190,6 +2199,16 @@ static void mgr_set_param(void *inst, const char *key, const char *val) {
         m->page = 0;
         m->menu = -1;
         m->detail[0] = 0;
+    } else if (!strcmp(key, "disk_btn") && ntargets(m) > 1 && !busy) m->menu_open = 3;   /* the drive menu: where new installs go */
+    else if (!strncmp(key, "drv_pick", 8) && key[8] >= '1' && key[8] <= '4' && m->menu_open == 3) {
+        int k = key[8] - '1';
+        m->menu_open = 0;
+        if (k < ntargets(m) && k != m->tsel % ntargets(m)) {
+            m->tsel = k;
+            target_save(m);   /* remembered, as a pick on the restart prompt is */
+            m->ready = 0;     /* a prepared apply.sh names the old place */
+            post(m, J_REFRESH);   /* the readout shows the new drive's free space */
+        }
     } else if (!strcmp(key, "d_back")) { m->detail[0] = 0; m->menu = -1; }
     else if (!strcmp(key, "tag_clear")) { m->tag[0] = 0; m->page = 0; }
     else if (!strncmp(key, "d_tag", 5) && key[5] >= '1' && key[5] <= '8') {   /* a tag button: list the plugins with that tag (in the current tab) */
@@ -2244,7 +2263,22 @@ static int mgr_get_param(void *inst, const char *key, char *b, int n) {
     else if (!strcmp(key, "dd")) snprintf(b, n, "%d", m->tag[0] || m->q[0] || !m->dev->problem[0]);   /* the dropdowns: not over the problem banner */
     else if (!strcmp(key, "net")) snprintf(b, n, "%d", !m->online);
     else if (!strcmp(key, "disk")) snprintf(b, n, "%d", (int)(m->disk_used * 10 + 0.5));   /* bar steps 0..10 */
-    else if (!strcmp(key, "disk_txt")) snprintf(b, n, "%s", m->disk_free[0] ? m->disk_free : " ");
+    else if (!strcmp(key, "disk_txt")) {
+        if (ntargets(m) > 1 && m->disk_free[0])   /* more than one place to install to: name it, and the ▾ says it opens a menu */
+            snprintf(b, n, "%s \xc2\xb7 %.*s \xe2\x96\xbe", target_name(m, m->tsel % ntargets(m)),
+                     (int)(strstr(m->disk_free, " free") ? strstr(m->disk_free, " free") - m->disk_free : (long)strlen(m->disk_free)), m->disk_free);
+        else snprintf(b, n, "%s", m->disk_free[0] ? m->disk_free : " ");
+    }
+    else if (!strcmp(key, "drv_open")) snprintf(b, n, "%d", m->menu_open == 3);
+    else if (!strcmp(key, "drv_hl")) snprintf(b, n, "%d", m->menu_open == 3 && ntargets(m) ? 1 + m->tsel % ntargets(m) : 0);
+    else if (!strncmp(key, "drv", 3) && key[3] >= '1' && key[3] <= '4' && !strcmp(key + 4, "_txt")) {
+        int k = key[3] - '1';
+        if (k < ntargets(m)) {
+            struct statvfs dv;
+            if (statvfs(target_at(m, k), &dv) == 0) snprintf(b, n, "%s  \xc2\xb7  %.1f GB free", target_name(m, k), (double)dv.f_bavail * dv.f_frsize / 1e9);
+            else snprintf(b, n, "%s", target_name(m, k));
+        } else snprintf(b, n, " ");
+    }
     else if (!strcmp(key, "upd_badge")) snprintf(b, n, "%d", upd > 0);
     else if (!strcmp(key, "upd_count")) snprintf(b, n, "%d", upd);
     else if (!strcmp(key, "problem")) snprintf(b, n, "%d", m->dev->problem[0] != 0);
@@ -2294,9 +2328,9 @@ static int mgr_get_param(void *inst, const char *key, char *b, int n) {
     else if (!strcmp(key, "theme_can")) snprintf(b, n, "%d", m->theme_can);
     else if (!strcmp(key, "theme")) snprintf(b, n, "%d", m->theme);
     else if (!strcmp(key, "theme_txt")) snprintf(b, n, "%s%s", m->theme ? "LIGHT" : "DARK", theme_dirty(m) ? "  after restart" : "");
-    else if (!strcmp(key, "confirm_pick")) snprintf(b, n, "%d", m->confirm && m->ready && !busy && m->dev->nusable > 1);
+    else if (!strcmp(key, "confirm_pick")) snprintf(b, n, "%d", m->confirm && m->ready && !busy && ntargets(m) > 1);
     else if (!strcmp(key, "confirm_dest")) {
-        if (m->dev->nusable > 1) snprintf(b, n, "Install to: %s  (%d of %d)", dest(m), m->tsel % m->dev->nusable + 1, m->dev->nusable);
+        if (ntargets(m) > 1) snprintf(b, n, "Install to: %s  (%d of %d)", dest(m), m->tsel % ntargets(m) + 1, ntargets(m));
         else snprintf(b, n, "Install to: %s", dest(m));
     }
     else if (!strcmp(key, "confirm_txt1") || !strcmp(key, "confirm_txt2")) {

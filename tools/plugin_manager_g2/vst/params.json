@@ -2984,6 +2984,79 @@
     "wurl",
     "xenia"
    ]
+  },
+  {
+   "key": "disk_btn",
+   "name": "Drive menu",
+   "type": "trigger",
+   "momentary": true
+  },
+  {
+   "key": "drv_open",
+   "name": "Drive menu open",
+   "options": [
+    "off",
+    "on"
+   ]
+  },
+  {
+   "key": "drv_hl",
+   "name": "Drive menu selection",
+   "options": [
+    "none",
+    "1",
+    "2",
+    "3",
+    "4"
+   ]
+  },
+  {
+   "key": "drv1_txt",
+   "name": "Drive 1",
+   "type": "readout",
+   "display": "string"
+  },
+  {
+   "key": "drv2_txt",
+   "name": "Drive 2",
+   "type": "readout",
+   "display": "string"
+  },
+  {
+   "key": "drv3_txt",
+   "name": "Drive 3",
+   "type": "readout",
+   "display": "string"
+  },
+  {
+   "key": "drv4_txt",
+   "name": "Drive 4",
+   "type": "readout",
+   "display": "string"
+  },
+  {
+   "key": "drv_pick1",
+   "name": "Drive pick 1",
+   "type": "trigger",
+   "momentary": true
+  },
+  {
+   "key": "drv_pick2",
+   "name": "Drive pick 2",
+   "type": "trigger",
+   "momentary": true
+  },
+  {
+   "key": "drv_pick3",
+   "name": "Drive pick 3",
+   "type": "trigger",
+   "momentary": true
+  },
+  {
+   "key": "drv_pick4",
+   "name": "Drive pick 4",
+   "type": "trigger",
+   "momentary": true
   }
  ]
 }

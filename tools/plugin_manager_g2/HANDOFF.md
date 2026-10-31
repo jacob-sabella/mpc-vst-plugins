@@ -24,7 +24,7 @@ location confirmed on the restart prompt is remembered (device-tested on a Force
 4. After checking the zips on devices, add `tested.json` records in a PR. (That file is outside the catalog workflow's path filter, so such a PR has no checks.)
 
 ## Open items
-0. 0.2.5 (fixes, 2026-10-31): the zip checks work on BusyBox and fail closed; one instance reports the last apply (no "N failed" garbage). See docs/NOTES.md 2026-10-31. Device check after release: install + remove one plugin, reopen, read the status line and manager.log (no `unzip -Z` errors).
+0. 0.2.5 (2026-10-31): a drive menu on the storage readout (tap it: INSTALL TO, the usable places with free space; same choice as CHANGE, remembered; offline: test `pick`, skin preview), and fixes: the zip checks work on BusyBox and fail closed; one instance reports the last apply (no "N failed" garbage). See docs/NOTES.md 2026-10-31. Device check after release: install + remove one plugin, reopen, read the status line and manager.log (no `unzip -Z` errors).
 1. Issue #610 / branch `pm-g2-thumbs-20261028`: the weekly thumbnail check (`plugin-manager-g2-thumbs.yml`, `vst/thumbs_check.sh`) found a new catalog screenshot
    (the manager's own). Merge it with the next release; thumbnails only reach devices in a release. Actions may not create PRs in this repo, so the check opens
    an issue with a compare link.
