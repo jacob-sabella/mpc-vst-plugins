@@ -15,5 +15,6 @@
     "spring-reverb",
     "tempo-sync",
     "companion-app"
-  ]
+  ],
+  "flags_reviewed": ["network"]
 }
