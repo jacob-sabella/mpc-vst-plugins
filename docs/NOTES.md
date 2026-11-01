@@ -2104,3 +2104,9 @@ Fixes (offline-tested; not yet on a device): the manager's keys get the same 250
 - **Tests:** `test_vst3.sh` passes for Keyscope (`--passthrough`), Chordsmith, Tuner, Groover, DrumGizmo and Stompbox
   (`build/gen/vst.json`, with `alloc_dealloc_mismatch=0` for guitarix's generated chorus code) under ASan/UBSan, editor
   window included. Steinberg's `validator` was not rerun (not built on this machine).
+
+## 2026-10-31: desktop VST3 for Windows (prepared)
+
+Offline only: `VST3_TARGET=windows` in `tools/build_vst3.sh` and `tools/test_vst3.sh` cross-builds the wrapper with mingw-w64
+and runs the host test under Wine 11 (passes for `poc/uiprobe`). Not tried on real Windows or in a DAW; no editor on Windows;
+the Maschine engine does not compile (`dlfcn.h`). Details: docs/DESKTOP_VST3.md, "Windows".

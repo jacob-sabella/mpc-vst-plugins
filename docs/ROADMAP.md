@@ -59,7 +59,7 @@ Building on parameter-driven visibility (`IndexedEnabling`, NOTES "Conditional v
       thing to try: how the stock plugins (AIR, Akai) respond to the same Q-Link on a stepped param, by logging what MPC sends them
       and what they read back, then match that.
 - [ ] **Desktop VST3, next:** use the editor's mouse input in a DAW by hand (it loads and draws in Reaper), ship engine data (DrumGizmo kits) inside the bundle for
-      `MODULE_SUBDIR` ports, keyboard input for text fields, Windows/macOS views (docs/DESKTOP_VST3.md).
+      `MODULE_SUBDIR` ports, keyboard input for text fields, a Windows editor, running the Windows build on a real host, macOS (docs/DESKTOP_VST3.md, "Windows").
 - [ ] **A reference port on `engine.h` + `params.json`** (e.g. `poc/synth.c` turned into a full example), so
       the repo shows a port that needs no adapter.
 
