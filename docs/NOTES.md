@@ -2344,3 +2344,21 @@ Not a dependency: Monomodule FX processes any audio and only mentions Monomodule
   the desktop Go tests (a new `ForDevice` test), the site browser test (a Sample-only, Sample-verified fixture), `--check-registry` clean.
 - **Test pitfall:** stand-in processes named `MPC Sample` left running from a page test make every store test that stops MPC fail with
   "MPC did not stop" (the store waits for `MPC` or `MPC Sample` to exit). Kill them before running the suite.
+
+## 2026-11-06: MPC Sample: 16 Levels Type cycle, Scale as an extra Type (device)
+
+MPC Sample app 1.3.0.12, with the Enable Scale Mode addin 0.1.1 (`jacob-sabella/mpc-addin-enable-scalemode`).
+
+- **Buttons:** the Sample has a 16 Levels button; Shift+16 Levels cycles its Type (on screen: Tune, Velocity, Filter). On the control
+  surface they arrive as notes 40 (16 Levels) and 49 (Shift), ch 1.
+- **16 Levels slots:** with 16 Levels on, one sound spreads over 16 slots (4 pads x 4 banks); the note-mapping function gets the
+  slot index 0-15, not the physical pad.
+- **Type cycle:** the function at base+0x1542030 is the Type cycle. The Type is an int at `*(this+0x50)+0x34`, and Shift+16 Levels
+  steps it 0 -> 2 -> 1 -> 0. Which value is which name isn't mapped yet. A PACIASP hook there can add a step: the addin inserts Scale
+  after value 1 and keeps that value underneath, so the note-mapping function still runs and the hook repitches the slots.
+- **PadPerform bool:** forcing the PadPerform "supported" bool makes the Sample boot with Pad Perform active, and the firmware then
+  refuses 16 Levels ("16 levels is not enabled because pad perform is active"). The addin no longer forces it by default.
+- **Note setter offsets:** these are relative to the sample's pitch, with a -24 base. On the Sample an octave offset of +2 puts slot 0
+  on the root.
+- **Not on the Sample:** the Pad Perform settings dialogue (it's built from touch components and the Sample has no touchscreen),
+  and a generation gate near `padPerformButton` (the scan finds none, and nothing needs patching there).
