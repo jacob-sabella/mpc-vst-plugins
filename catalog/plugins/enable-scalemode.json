@@ -1,0 +1,18 @@
+{
+  "id": "enable-scalemode",
+  "name": "Enable Scale Mode",
+  "author": "jacob-sabella",
+  "repo": "jacob-sabella/mpc-addin-enable-scalemode",
+  "kind": "addin",
+  "style": "utility",
+  "tags": [
+    "scale",
+    "pad-perform",
+    "notes",
+    "pads"
+  ],
+  "license": "MIT",
+  "summary": "Unlocks Pad Perform / Scale Mode: repitches pads through configurable scale tables with a CLI for mode cycling and settings.",
+  "asset_pattern": "Enable-Scale-Mode-*-mpc-aarch64.zip",
+  "devices": ["mpc-sample"]
+}
