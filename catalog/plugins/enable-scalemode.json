@@ -7,12 +7,14 @@
   "style": "utility",
   "tags": [
     "scale",
-    "pad-perform",
+    "16-levels",
     "notes",
     "pads"
   ],
   "license": "MIT",
-  "summary": "Unlocks Pad Perform / Scale Mode: repitches pads through configurable scale tables with a CLI for mode cycling and settings.",
+  "summary": "Adds Scale to the MPC Sample's 16 Levels Type cycle (Shift+16 Levels): the 16 slots play a chosen scale instead of chromatic steps.",
   "asset_pattern": "Enable-Scale-Mode-*-mpc-aarch64.zip",
-  "devices": ["mpc-sample"]
+  "devices": [
+    "mpc-sample"
+  ]
 }
