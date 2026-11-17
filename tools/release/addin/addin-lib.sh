@@ -391,12 +391,15 @@ mockba_hook_remove() {   # so
 # Hakai's launcher. On Hakai the script MPC's service runs, /usr/bin/az01-launch-MPC, sets LD_PRELOAD itself (its own
 # libraries, then $CURSOR_SO) and so replaces the service's list: the drop-in above never reaches MPC
 # (jacob-sabella/mpc-addin-usb-audio#4 and mpc-addin-remote#7, HAKAI 3.9.1 and 3.10). Stock firmware has the same file without an LD_PRELOAD line, and is left
-# alone. Where the launcher sets it, every assignment there also gets the addin's .so at the end of its value (a quoted
+# alone. Where the launcher sets it, the first assignment on each line also gets the addin's .so at the end of its value (a quoted
 # list gains " <so>", an unquoted one ":<so>"); uninstall takes out exactly that. A backup of the launcher is kept from
 # before the first edit (<launcher>.bak-mpc-addins), the edit is staged and renamed, and the root is remounted
 # writable around it. A Hakai update replaces the launcher: install the addin again afterwards (check_loaded warns).
 LAUNCHER="$SYSTEMD_ROOT/usr/bin/az01-launch-MPC"
-launcher_sets_preload() { [ -f "$LAUNCHER" ] && grep -v '^[[:space:]]*#' "$LAUNCHER" | grep -q 'LD_PRELOAD='; }
+# An LD_PRELOAD assignment outside a comment, matched the way launcher_edit matches it (so FOO_LD_PRELOAD= is not one).
+launcher_sets_preload() {
+    [ -f "$LAUNCHER" ] && awk '!/^[[:space:]]*#/ && /(^|[[:space:];&|])(export[[:space:]]+)?LD_PRELOAD=/ { f = 1 } END { exit !f }' "$LAUNCHER"
+}
 # The launcher with the .so added to ("add") or taken out of ("remove") each LD_PRELOAD assignment, on stdout. Exits 3,
 # printing the line on stderr, when an assignment has a shape it cannot edit (an unclosed quote).
 launcher_edit() {   # mode so file
@@ -463,7 +466,7 @@ check_loaded() {   # so
     if [ -n "$pid" ] && tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep '^LD_PRELOAD=' | grep -qF "$1"; then
         echo "  checked: MPC loaded $(basename "$1")"
     else
-        echo "warning: MPC is running without $(basename "$1"): a launcher on this device replaces LD_PRELOAD. See docs/ADDINS.md (MockbaMod and other launchers)." >&2
+        echo "warning: MPC is running without $(basename "$1"): a launcher on this device replaces LD_PRELOAD. See docs/ADDINS.md (MockbaMod, Hakai and other launchers)." >&2
     fi
 }
 

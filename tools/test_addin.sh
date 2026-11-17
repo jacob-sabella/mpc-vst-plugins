@@ -375,6 +375,11 @@ export ADDIN_MOUNTS="$T/mounts-plain"
 fresh; unit 'Restart=always'; hakai; mv "$L" "$T/root/usr/bin/hakai-launch"; ln -s hakai-launch "$L"; run a install.sh
 [ -L "$L" ] && grep -qF "$A" "$T/root/usr/bin/hakai-launch" && [ -f "$T/root/usr/bin/hakai-launch.bak-mpc-addins" ] \
   && ok "Hakai: a symlinked launcher keeps its link; the target is edited" || bad "Hakai symlink: $(ls -l "$T/root/usr/bin")"
+# a name that only ends in LD_PRELOAD is not an assignment: no summary line, no backup, no rewrite, no warning
+fresh; unit 'Restart=always'; mkdir -p "$T/root/usr/bin"; printf '#!/bin/sh\nFOO_LD_PRELOAD=/x.so\nexec /usr/bin/MPC\n' > "$L"; cp "$L" "$T/launcher-orig"
+run a install.sh
+cmp -s "$L" "$T/launcher-orig" && [ ! -e "$L.bak-mpc-addins" ] && ! grep -q "Hakai\|could not be edited" "$T/out" \
+  && ok "Hakai: FOO_LD_PRELOAD= is not taken for an assignment" || bad "Hakai FOO_LD_PRELOAD: $(cat "$T/out")"
 # a shape it cannot edit (an unclosed quote): nothing is changed, with a warning
 fresh; unit 'Restart=always'; mkdir -p "$T/root/usr/bin"; printf '#!/bin/sh\nexport LD_PRELOAD="/usr/lib/x.so \\\n /usr/lib/y.so"\nexec /usr/bin/MPC\n' > "$L"; cp "$L" "$T/launcher-orig"
 run a install.sh

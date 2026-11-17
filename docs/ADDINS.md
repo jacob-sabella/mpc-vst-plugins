@@ -76,14 +76,23 @@ On Hakai, the script MPC's service runs, `/usr/bin/az01-launch-MPC`, sets `LD_PR
 `$CURSOR_SO`), which replaces the service's list: an addin in the drop-in above is installed but never loaded
 (jacob-sabella/mpc-addin-usb-audio#4, HAKAI 3.9.1 and 3.10 on an MPC One: four `export LD_PRELOAD="... $CURSOR_SO"`
 lines, one per branch; jacob-sabella/mpc-addin-remote#7). Stock firmware has the same file with no `LD_PRELOAD` line, and the
-installer leaves it alone. Where the launcher has one, `install.sh` also adds the addin's `.so` to the end of every
-`LD_PRELOAD` assignment in it (a quoted list gains ` <so>`, an unquoted one `:<so>`; comment lines are skipped), and
-`uninstall.sh` takes out exactly that. The root is remounted writable around the edit, the first edit keeps a backup
-(`az01-launch-MPC.bak-mpc-addins`), and the new file is staged and renamed. An assignment it cannot parse (an unclosed
-quote), or a root that can't be remounted, leaves the launcher untouched with a warning; then add the `.so` by hand, after
-`$CURSOR_SO`. The drop-in is still written. A Hakai update replaces the launcher: install the addin again afterwards
-(`install.sh` warns after the restart when MPC came up without it). Tests: case 19 in `tools/test_addin.sh`. Offline only
-(2026-11-17): not yet run on a Hakai device.
+installer leaves it alone. Where the launcher has one, `install.sh` also adds the addin's `.so` to the end of the first
+`LD_PRELOAD` assignment on each line of it (a quoted list gains ` <so>`, an unquoted one `:<so>`; comment lines are
+skipped, and so is a name that only ends in `LD_PRELOAD`, such as `FOO_LD_PRELOAD=`). `uninstall.sh` takes out exactly that.
+The root is remounted writable around the edit, and the new file is staged and renamed. An assignment it can't parse (an
+unclosed quote), or a root that can't be remounted, leaves the launcher untouched with a warning; then add the `.so` by
+hand, after `$CURSOR_SO`. The drop-in is still written. A Hakai update replaces the launcher: install the addin again
+afterwards (`install.sh` warns after the restart when MPC came up without it). Tests: case 19 in `tools/test_addin.sh`.
+Offline only (2026-11-17): not yet run on a Hakai device.
+
+- **The backup**, `az01-launch-MPC.bak-mpc-addins` next to the launcher, is the launcher as it was before the first addin
+  edited it. Nothing reads it back (uninstall edits in place), it is not refreshed when a Hakai update replaces the
+  launcher, and uninstalling doesn't remove it. Don't restore from it after a Hakai update: it would put back the old
+  version's launcher.
+- **The button remap patch** (`tools/mpc_patch/hwremap`) edits the same launcher, and its uninstall (or a rolled-back
+  install) puts back the copy it saved when it was installed. Any addin installed after that copy was saved loses its
+  `.so` from the launcher, with no warning. After removing the button remap on Hakai, run each addin's `install.sh`
+  again. The other order is safe.
 
 ### After a reboot: `/etc` is mounted after systemd reads its units
 
@@ -170,7 +179,10 @@ everything an addin changed can be undone from there:
 3. **Every addin at once:** delete `/etc/systemd/system/acvs.service.d/90-mpc-addins.conf`, and restore every
    `<file>.bak-mpc-addins` backup over the file it was taken from
    (`find /etc/systemd/system -name '*.bak-mpc-addins'`). That puts back the list the firmware set; the addins' folders
-   stay in `/data/mpc-addins/` and do nothing until they are installed again.
+   stay in `/data/mpc-addins/` and do nothing until they are installed again. On Hakai, also take the addins out of
+   `/usr/bin/az01-launch-MPC` (`mount -o remount,rw /` first): delete each `/data/mpc-addins/...` path from its
+   `LD_PRELOAD` lines. Restore `az01-launch-MPC.bak-mpc-addins` instead only if Hakai hasn't been updated since the
+   first addin was installed (see "Hakai" above).
 4. `systemctl daemon-reload`, then `systemctl start acvs`.
 
 Most addins also have an off switch in their settings file (`enabled=0`), which leaves the library loaded but idle.
