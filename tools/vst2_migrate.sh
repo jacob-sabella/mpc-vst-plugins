@@ -119,7 +119,16 @@ if [ -n "$JSON" ]; then
     el=$(element "$ROOT$d" "${d%/*}")
     [ -n "$el" ] || { echo "$d: no plugin-meta.xml and no MPC.settings entry" >&2; exit 1; }
     uid=$(attr uid "$el"); case $uid in *[!0-9a-fA-F]*|'') echo "$d: uid \"$uid\" is not hex" >&2; exit 1 ;; esac
-    write_json "$ROOT$d/plugin.json" "$el" && echo "wrote $d/plugin.json" || exit 1
+    # The binary the element names has to be in the folder. A universal package brings its own plugin.json (file32 + file64) and no
+    # plugin-meta.xml; the element is then the old MPC.settings entry, which can name a file the new folder does not have. Writing
+    # that name left the plugin unlisted (plugin-manager #46): keep the plugin.json that is there, or say so when there is none.
+    so=$(relfile "$ROOT$d" "$(attr file "$el")")
+    if [ ! -f "$ROOT$d/$so" ]; then
+        if [ -f "$ROOT$d/plugin.json" ]; then echo "KEEP  ${d##*/}: its plugin.json stays ($so is not in the folder)"
+        else echo "$d: binary $so is not in the folder, no plugin.json written" >&2; exit 1; fi
+    else
+        write_json "$ROOT$d/plugin.json" "$el" && echo "wrote $d/plugin.json" || exit 1
+    fi
     retire_old_skins "${d##*/}" "${d%/*}"
     exit 0
 fi
